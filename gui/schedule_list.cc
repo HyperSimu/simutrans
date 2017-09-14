@@ -44,7 +44,6 @@
 #include "../boden/wege/schiene.h"
 #include "../boden/wege/strasse.h"
 
-
 #include "karte.h"
 
 
@@ -221,7 +220,7 @@ schedule_list_gui_t::schedule_list_gui_t(player_t *player_) :
 
 	// lower left corner: halt list of selected line
 	cont_haltestellen.set_size(scr_size(3*D_BUTTON_WIDTH+2*D_H_SPACE, 28));
-	scrolly_haltestellen.set_pos(scr_coord(D_MARGIN_LEFT, bt_y + D_BUTTON_HEIGHT+ D_V_SPACE));
+	scrolly_haltestellen.set_pos(scr_coord(D_MARGIN_LEFT, bt_y + D_BUTTON_HEIGHT + D_V_SPACE));
 	scrolly_haltestellen.set_show_scroll_x(true);
 	scrolly_haltestellen.set_scroll_amount_y(28);
 	scrolly_haltestellen.set_visible(false);
@@ -242,7 +241,7 @@ schedule_list_gui_t::schedule_list_gui_t(player_t *player_) :
 
 	// convoi list
 	cont.set_size(scr_size(200, 40));
-	scrolly_convois.set_pos(scr_coord(RIGHT_COLUMN_OFFSET, bt_y + D_BUTTON_HEIGHT+ D_V_SPACE + 2*LINESPACE));
+	scrolly_convois.set_pos(scr_coord(RIGHT_COLUMN_OFFSET, bt_y + D_BUTTON_HEIGHT + D_V_SPACE + 2*LINESPACE));
 	scrolly_convois.set_show_scroll_x(true);
 	scrolly_convois.set_scroll_amount_y(40);
 	scrolly_convois.set_visible(false);
@@ -254,6 +253,13 @@ schedule_list_gui_t::schedule_list_gui_t(player_t *player_) :
 	bt_withdraw_line.set_visible(false);
 	bt_withdraw_line.add_listener(this);
 	add_component(&bt_withdraw_line);
+
+	bt_all_go_home.init(button_t::roundbox_state, "All Go Home",
+		scr_coord(RIGHT_COLUMN_OFFSET+D_BUTTON_WIDTH+D_H_SPACE, bt_y), scr_size(D_BUTTON_WIDTH, D_BUTTON_HEIGHT));
+	bt_all_go_home.set_tooltip("Convoi returns to nearest depot.");
+	bt_all_go_home.set_visible(false);
+	bt_all_go_home.add_listener(this);
+	add_component(&bt_all_go_home);
 
 	//CHART
 	chart.set_dimension(12, 1000);
@@ -384,6 +390,17 @@ bool schedule_list_gui_t::action_triggered( gui_action_creator_t *komp, value_t 
 			tmp_tool->set_default_param(buf);
 			welt->set_tool( tmp_tool, player );
 			// since init always returns false, it is safe to delete immediately
+			delete tmp_tool;
+		}
+	}
+	else if(  komp == &bt_all_go_home  ) {
+		bt_all_go_home.pressed ^= 1;
+		if (  line.is_bound()  ) {
+			tool_t *tmp_tool = create_tool( TOOL_CHANGE_LINE | SIMPLE_TOOL );
+			cbuffer_t buf;
+			buf.printf( "h,%i,%i", line.get_id(), bt_all_go_home.pressed );
+			tmp_tool->set_default_param(buf);
+			welt->set_tool( tmp_tool, player );
 			delete tmp_tool;
 		}
 	}
@@ -562,7 +579,7 @@ void schedule_list_gui_t::display(scr_coord pos)
 		buf.clear();
 		buf.printf( translator::translate("Capacity: %s\nLoad: %d (%d%%)"), ctmp, load, loadfactor );
 		display_multiline_text_rgb(pos.x + RIGHT_COLUMN_OFFSET + rest_width,
-			pos.y+D_TITLEBAR_HEIGHT+D_MARGIN_TOP + SCL_HEIGHT + 2*D_BUTTON_HEIGHT+D_V_SPACE, buf, SYSCOL_TEXT);
+			pos.y+D_TITLEBAR_HEIGHT+D_MARGIN_TOP+SCL_HEIGHT+2*D_BUTTON_HEIGHT+D_V_SPACE, buf, SYSCOL_TEXT);
 	}
 }
 
@@ -655,10 +672,11 @@ void schedule_list_gui_t::update_lineinfo(linehandle_t new_line)
 		cont.set_size(scr_size(500, ypos));
 
 		bt_delete_line.disable();
-		add_component(&bt_withdraw_line);
 		bt_withdraw_line.disable();
-		if(  icnv>0  ) {
+		bt_all_go_home.disable();
+		if( icnv>0 ) {
 			bt_withdraw_line.enable();
+			bt_all_go_home.enable();
 		}
 		else {
 			bt_delete_line.enable();
@@ -666,6 +684,7 @@ void schedule_list_gui_t::update_lineinfo(linehandle_t new_line)
 		bt_edit_line.enable();
 
 		bt_withdraw_line.pressed = new_line->get_withdraw();
+		bt_all_go_home.pressed = new_line->get_go_home();
 
 		// fill haltestellen container with info of stops of the line
 		cont_haltestellen.remove_all();
@@ -737,6 +756,7 @@ void schedule_list_gui_t::update_lineinfo(linehandle_t new_line)
 	}
 	line = new_line;
 	bt_withdraw_line.set_visible( line.is_bound() );
+	bt_all_go_home.set_visible( line.is_bound() );
 
 	reset_line_name();
 }

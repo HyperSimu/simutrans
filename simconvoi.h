@@ -167,6 +167,12 @@ private:
 	bool no_load;
 
 	/**
+	* the convoi is going to depot
+	* @author Hyper
+	*/
+	bool go_home;
+
+	/**
 	* the convoi caches its freight info; it is only recalculation after loading or resorting
 	* @author prissi
 	*/
@@ -522,6 +528,12 @@ public:
 	void betrete_depot(depot_t *dep);
 
 	/**
+	* update 'All Go Home' button in schedule list
+	* @author Hyper
+	*/
+	void update_schedule_list();
+
+	/**
 	* Return the internal name of the convois
 	* @return Name of the convois
 	* @author Hj. Malthaner
@@ -838,7 +850,7 @@ public:
 	 * Has to be called synchronously on all clients in networkmode!
 	 * @returns success message
 	 */
-	const char* send_to_depot(bool local);
+	bool send_to_depot(bool local);
 
 	/**
 	 * this give the index of the next signal or the end of the route
@@ -870,6 +882,13 @@ public:
 	bool get_no_load() const { return no_load; }
 
 	void set_no_load(bool new_no_load) { no_load = new_no_load; }
+
+	bool get_go_home() const { return go_home; }
+
+	void set_go_home(bool new_go_home) { go_home = new_go_home; }
+
+	// change state of go_home
+	void change_go_home(bool yes_no);
 
 	void must_recalc_data() { recalc_data = true; }
 	void must_recalc_data_front() { recalc_data_front = true; }

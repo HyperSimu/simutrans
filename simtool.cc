@@ -57,6 +57,7 @@
 #include "gui/trafficlight_info.h"
 #include "gui/privatesign_info.h"
 #include "gui/messagebox.h"
+#include "gui/convoi_info_t.h"
 
 #include "obj/zeiger.h"
 #include "obj/bruecke.h"
@@ -210,7 +211,6 @@ static char const* tooltip_with_price_maintenance_capacity(karte_t* const welt, 
 
 	return tool_t::toolstr;
 }
-
 
 void open_error_msg_win(const char* error)
 {
@@ -6720,9 +6720,11 @@ bool tool_change_convoi_t::init( player_t *player )
 			break;
 
 		case 'n': // change no_load
-			cnv->set_no_load( !cnv->get_no_load() );
-			if(  !cnv->get_no_load()  ) {
-				cnv->set_withdraw( false );
+			{
+				cnv->set_no_load( !cnv->get_no_load() );
+				if(  !cnv->get_no_load()  ) {
+					cnv->set_withdraw( false );
+				}
 			}
 			break;
 
@@ -6739,16 +6741,34 @@ bool tool_change_convoi_t::init( player_t *player )
 			break;
 
 		case 'w': // change withdraw
-			cnv->set_withdraw( !cnv->get_withdraw() );
-			cnv->set_no_load( cnv->get_withdraw() );
+			{
+				cnv->set_withdraw( !cnv->get_withdraw() );
+				cnv->set_no_load( cnv->get_withdraw() );
+			}
 			break;
 
-		case 'd': // goto depot
+		case 'd': // go to depot or back to normal schedule
 		{
-			const char* msg = cnv->send_to_depot(is_local_execution());
+			// limit update to certain states that are considered to be safe for schedule updates
+			if( cnv->get_state() != convoi_t::EDIT_SCHEDULE ) {
+				cnv->change_go_home( !cnv->get_go_home() );
 
-			if (is_local_execution()) {
-				create_win( new news_img(msg), w_time_delete, magic_none);
+				if( cnv->get_go_home() ) {
+					// go to depot
+					bool find_depot = cnv->send_to_depot(is_local_execution());
+
+					if (is_local_execution()) {
+						if( find_depot ){
+							create_win( new news_img("Convoi has been sent\nto the nearest depot\nof appropriate type.\n"), w_time_delete, magic_none);
+						}
+						else {
+							create_win( new news_img("Home depot not found!\nYou need to send the\nconvoi to the depot\nmanually."), w_time_delete, magic_none);
+						}
+					}
+				}
+				else {
+					cnv->update_schedule_list();
+				}
 			}
 		}
 	}
@@ -6775,7 +6795,14 @@ bool tool_change_convoi_t::init( player_t *player )
 /* Handles all action of lines. Needs a default param:
  * [function],[line_id],addition stuff
  * following simple command exists:
+ * 'c' : create line
  * 'g' : apply new schedule to line [schedule follows]
+ * 'd' : delete line
+ * 'g' : change schedule
+ * 't' : trims away convois on all lines of linetype with this default parameter
+ * 'u' : unite all lineless convois with similar schedules
+ * 'w' : change withdraw
+ * 'h' : change go home
  */
 bool tool_change_line_t::init( player_t *player )
 {
@@ -6998,6 +7025,22 @@ bool tool_change_line_t::init( player_t *player )
 				}
 			}
 			break;
+
+		case 'h': //change go home
+			{
+				if (line.is_bound()) {
+					bool enable_go_home = line->change_go_home( atoi(p) );
+
+					if (line->get_go_home()) {
+						if (enable_go_home) {
+							create_win( new news_img("Each convoi in this line\nhas been sent to\nthe nearest depot.\n"), w_time_delete, magic_none);
+						}
+						else {
+							create_win( new news_img("Some convoi in this line\ncan not found home depot!\nYou need to send the\nconvoi to the depot\nmanually.\n"), w_time_delete, magic_none);
+						}
+					}
+				}
+			}
 	}
 	return false;
 }
@@ -7475,6 +7518,7 @@ bool tool_rename_t::init(player_t *player)
 		}
 
 		case 'm':
+		{
 			if(  grund_t *gr = welt->lookup(pos)  ) {
 				label_t *label = gr->find<label_t>();
 				if (label  &&  (!env_t::networkmode  ||  player_t::check_owner(label->get_owner(), player))  ) {
@@ -7483,8 +7527,10 @@ bool tool_rename_t::init(player_t *player)
 				return false;
 			}
 			break;
+		}
 
-		case 'p': {
+		case 'p':
+		{
 			player_t *other = welt->get_player((uint8)id);
 			if(  other  &&  other == player  ) {
 				other->set_name(p);

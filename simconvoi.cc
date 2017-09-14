@@ -29,6 +29,7 @@
 #include "gui/depot_frame.h"
 #include "gui/messagebox.h"
 #include "gui/convoi_detail_t.h"
+#include "gui/schedule_list.h"
 #include "boden/grund.h"
 #include "boden/wege/schiene.h"	// for railblocks
 
@@ -124,6 +125,7 @@ void convoi_t::init(player_t *player)
 	withdraw = false;
 	has_obsolete = false;
 	no_load = false;
+	go_home = false;
 	wait_lock = 0;
 	arrived_time = 0;
 
@@ -1487,8 +1489,18 @@ void convoi_t::betrete_depot(depot_t *dep)
 
 	maxspeed_average_count = 0;
 	state = INITIAL;
+	set_go_home(false);
+	update_schedule_list();
 }
 
+void convoi_t::update_schedule_list()
+{
+	get_line()->set_go_home( get_line()->check_go_home_status() );
+	schedule_list_gui_t *sl = dynamic_cast<schedule_list_gui_t *>(win_get_magic( magic_line_management_t + get_owner()->get_player_nr() ));
+	if(  sl  ) {
+		sl->update_lineinfo( get_line() );
+	}
+}
 
 void convoi_t::start()
 {
@@ -1576,6 +1588,7 @@ void convoi_t::ziel_erreicht()
 		// we still book the money for the trip; however, the freight will be deleted (by the vehicle in the depot itself)
 		calc_gewinn();
 
+		go_home = false;
 		akt_speed = 0;
 		buf.printf( translator::translate("%s has entered a depot."), get_name() );
 		welt->get_message()->add_message(buf, v->get_pos().get_2d(),message_t::warnings, PLAYER_FLAG|get_owner()->get_player_nr(), IMG_EMPTY);
@@ -2563,6 +2576,15 @@ void convoi_t::rdwr(loadsave_t *file)
 		file->rdwr_short( next_stop_index );
 		file->rdwr_short( next_reservation_index );
 	}
+	/** file input/output
+	// go_home
+	if(file->get_version()<XXXX) {
+		go_home = false;
+	}
+	else {
+		file->rdwr_bool(go_home);
+	}
+	*/
 
 	if(  file->is_loading()  ) {
 		reserve_route();
@@ -3574,6 +3596,88 @@ void convoi_t::set_withdraw(bool new_withdraw)
 	}
 }
 
+// convoi will go to depot if it is not searching for route.
+void convoi_t::change_go_home(bool yes_no)
+{
+	// test if convoi in depot and not driving
+	grund_t *gr = welt->lookup( get_pos());
+	if(  gr  &&  gr->get_depot()  &&  state == INITIAL  ) {
+		// do not touch line bound convois in depots
+		set_go_home(false);
+		return;
+	}
+	set_go_home(yes_no);
+	if ( get_go_home() ) {
+		if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id()))) {
+			info->route_search_start();
+		}
+	}
+	else {
+		// back to normal schedule if the convoi is going to depot
+		if (welt->lookup(get_schedule()->get_current_entry().pos)->get_depot() != NULL) {
+			schedule_t* schedule = get_schedule()->copy();
+			schedule->remove(); // remove depot entry
+
+			cbuffer_t buf;
+			schedule->sprintf_schedule( buf );
+			call_convoi_tool( 'g', buf );
+			delete schedule;
+		}
+	}
+}
+
+bool convoi_t::send_to_depot(bool local)
+{
+	// iterate over all depots and try to find shortest route
+	route_t *shortest_route = new route_t();
+	route_t *route = new route_t();
+	koord3d home = koord3d::invalid;
+	vehicle_t *v = front();
+
+	// if convoi is going to a depot, return true
+	if (welt->lookup(get_schedule()->get_current_entry().pos)->get_depot() != NULL) {
+		dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id()))->route_search_finished();
+		return true;
+	}
+
+	FOR(slist_tpl<depot_t*>, const depot, depot_t::get_depot_list()) {
+		if (depot->get_waytype() != v->get_desc()->get_waytype()  ||  depot->get_owner() != get_owner()) {
+			continue;
+		}
+		koord3d pos = depot->get_pos();
+
+		if(!shortest_route->empty()  &&  koord_distance(pos, get_pos()) >= shortest_route->get_count()-1) {
+			// the current route is already shorter, no need to search further
+			continue;
+		}
+		if (v->calc_route(get_pos(), pos, 50, route)) { // do not care about speed
+			if(  route->get_count() < shortest_route->get_count()  ||  shortest_route->empty()  ) {
+				// just swap the pointers
+				sim::swap(shortest_route, route);
+				home = pos;
+			}
+		}
+	}
+	delete route;
+	DBG_MESSAGE("shortest route has ", "%i hops", shortest_route->get_count()-1);
+
+	if (local) {
+		if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info+self.get_id()))) {
+			info->route_search_finished();
+		}
+	}
+	// if route to a depot has been found, update the convoi's schedule
+	bool enable_go_home = !shortest_route->empty();
+	if(  enable_go_home  ) {
+		schedule_t *schedule = get_schedule()->copy();
+		schedule->insert(welt->lookup(home));
+		schedule->set_current_stop( (schedule->get_current_stop()+schedule->get_count()-1)%schedule->get_count() );
+		set_schedule(schedule);
+	}
+	delete shortest_route;
+
+	return enable_go_home;
+}
 
 /**
  * conditions for a city car to overtake another overtaker.
@@ -3802,55 +3906,4 @@ sint64 convoi_t::get_stat_converted(int month, int cost_type) const
 		default: ;
 	}
 	return value;
-}
-
-
-const char* convoi_t::send_to_depot(bool local)
-{
-	// iterate over all depots and try to find shortest route
-	route_t *shortest_route = new route_t();
-	route_t *route = new route_t();
-	koord3d home = koord3d::invalid;
-	vehicle_t *v = front();
-	FOR(slist_tpl<depot_t*>, const depot, depot_t::get_depot_list()) {
-		if (depot->get_waytype() != v->get_desc()->get_waytype()  ||  depot->get_owner() != get_owner()) {
-			continue;
-		}
-		koord3d pos = depot->get_pos();
-
-		if(!shortest_route->empty()  &&  koord_distance(pos, get_pos()) >= shortest_route->get_count()-1) {
-			// the current route is already shorter, no need to search further
-			continue;
-		}
-		if (v->calc_route(get_pos(), pos, 50, route)) { // do not care about speed
-			if(  route->get_count() < shortest_route->get_count()  ||  shortest_route->empty()  ) {
-				// just swap the pointers
-				sim::swap(shortest_route, route);
-				home = pos;
-			}
-		}
-	}
-	delete route;
-	DBG_MESSAGE("shortest route has ", "%i hops", shortest_route->get_count()-1);
-
-	if (local) {
-		if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info+self.get_id()))) {
-			info->route_search_finished();
-		}
-	}
-	// if route to a depot has been found, update the convoi's schedule
-	const char *txt;
-	if(  !shortest_route->empty()  ) {
-		schedule_t *schedule = get_schedule()->copy();
-		schedule->insert(welt->lookup(home));
-		schedule->set_current_stop( (schedule->get_current_stop()+schedule->get_count()-1)%schedule->get_count() );
-		set_schedule(schedule);
-		txt = "Convoi has been sent\nto the nearest depot\nof appropriate type.\n";
-	}
-	else {
-		txt = "Home depot not found!\nYou need to send the\nconvoi to the depot\nmanually.";
-	}
-	delete shortest_route;
-
-	return txt;
 }

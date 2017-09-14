@@ -133,5 +133,7 @@ public:
 
 	uint32 get_rdwr_id() { return magic_convoi_info; }
 
+	void route_search_start() { route_search_in_progress = true; }
+
 	void route_search_finished() { route_search_in_progress = false; }
 };

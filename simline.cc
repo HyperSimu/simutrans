@@ -42,6 +42,7 @@ simline_t::simline_t(player_t* player, linetype type)
 	this->schedule = NULL;
 	this->player = player;
 	withdraw = false;
+	go_home = false;
 	state_color = SYSCOL_TEXT;
 	create_schedule();
 }
@@ -55,6 +56,7 @@ simline_t::simline_t(player_t* player, linetype type, loadsave_t *file)
 	this->schedule = NULL;
 	this->player = player;
 	withdraw = false;
+	go_home = false;
 	create_schedule();
 	rdwr(file);
 	// now self has the right id but the this-pointer is not assigned to the quickstone handle yet
@@ -279,7 +281,6 @@ void simline_t::rdwr(loadsave_t *file)
 }
 
 
-
 void simline_t::finish_rd()
 {
 	if(  !self.is_bound()  ) {
@@ -392,6 +393,7 @@ void simline_t::recalc_status()
 		// no convois assigned to this line
 		state_color = SYSCOL_TEXT_HIGHLIGHT;
 		withdraw = false;
+		go_home = false;
 	}
 	else if(financial_history[0][LINE_PROFIT]<0) {
 		// ok, not performing best
@@ -429,12 +431,13 @@ void simline_t::recalc_catg_index()
 	}
 	goods_catg_index.clear();
 	withdraw = !line_managed_convoys.empty();
+	go_home = !line_managed_convoys.empty();
 	// then recreate current
 	FOR(vector_tpl<convoihandle_t>, const i, line_managed_convoys) {
 		// what goods can this line transport?
 		convoi_t const& cnv = *i;
 		withdraw &= cnv.get_withdraw();
-
+		go_home &= cnv.get_go_home();
 		FOR(minivec_tpl<uint8>, const catg_index, cnv.get_goods_catg_index()) {
 			goods_catg_index.append_unique( catg_index );
 		}
@@ -456,8 +459,6 @@ void simline_t::recalc_catg_index()
 	}
 }
 
-
-
 void simline_t::set_withdraw( bool yes_no )
 {
 	withdraw = yes_no && !line_managed_convoys.empty();
@@ -468,6 +469,34 @@ void simline_t::set_withdraw( bool yes_no )
 	}
 }
 
+void simline_t::set_go_home( bool yes_no )
+{
+	go_home = yes_no && !line_managed_convoys.empty();
+}
+
+bool simline_t::change_go_home( bool yes_no )
+{
+	set_go_home(yes_no);
+	bool enable_go_home = true;
+	for (size_t i = line_managed_convoys.get_count(); i-- != 0;) {
+		line_managed_convoys[i]->change_go_home(yes_no);
+		if ( yes_no && line_managed_convoys[i]->get_go_home() ) {
+			enable_go_home &= line_managed_convoys[i]->send_to_depot(yes_no);
+		}
+	}
+	//update schedule list
+	line_managed_convoys[0]->update_schedule_list();
+	return enable_go_home;
+}
+
+bool simline_t::check_go_home_status()
+{
+	bool go_home_status = false;
+	for (size_t i = line_managed_convoys.get_count(); i-- != 0;) {
+		go_home_status |= line_managed_convoys[i]->get_go_home();
+	}
+	return go_home_status;
+}
 
 sint64 simline_t::get_stat_converted(int month, int cost_type) const
 {

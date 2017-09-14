@@ -37,8 +37,6 @@
 
 #include "../utils/simstring.h"
 
-
-
 #include "convoi_detail_t.h"
 
 #define CHART_HEIGHT (100)
@@ -246,8 +244,10 @@ void convoi_info_t::draw(scr_coord pos, scr_size size)
 			}
 
 			if(  grund_t* gr=welt->lookup(cnv->get_schedule()->get_current_entry().pos)  ) {
-				go_home_button.pressed = gr->get_depot() != NULL;
+				go_home_button.pressed = cnv->get_go_home();
+				cnv->set_go_home(gr->get_depot() != NULL);
 			}
+
 			details_button.pressed = win_get_magic( magic_convoi_detail+cnv.get_id() );
 
 			no_load_button.pressed = cnv->get_no_load();
@@ -432,37 +432,15 @@ bool convoi_info_t::action_triggered( gui_action_creator_t *comp,value_t /* */)
 			return true;
 		}
 
-		if(  comp == &no_load_button    &&    !route_search_in_progress  ) {
+		if(  comp == &no_load_button  &&  !route_search_in_progress  ) {
 			cnv->call_convoi_tool( 'n', NULL );
 			return true;
 		}
 
 		if(  comp == &go_home_button  &&  !route_search_in_progress  ) {
-			// limit update to certain states that are considered to be safe for schedule updates
-			int state = cnv->get_state();
-			if(state==convoi_t::EDIT_SCHEDULE) {
-				return true;
-			}
-
-			grund_t* gr = welt->lookup(cnv->get_schedule()->get_current_entry().pos);
-			const bool enable_gohome = gr && gr->get_depot() == NULL;
-
-			if(  enable_gohome  ) {
-				// go to depot
-				route_search_in_progress = true;
-				cnv->call_convoi_tool( 'd', NULL );
-			}
-			else {
-				// back to normal schedule
-				schedule_t* schedule = cnv->get_schedule()->copy();
-				schedule->remove(); // remove depot entry
-
-				cbuffer_t buf;
-				schedule->sprintf_schedule( buf );
-				cnv->call_convoi_tool( 'g', buf );
-				delete schedule;
-			}
-		} // end go home button
+			cnv->call_convoi_tool( 'd', NULL );
+			return true;
+		}
 	}
 
 	if (  comp == &toggler  ) {
@@ -529,7 +507,7 @@ void convoi_info_t::set_windowsize(scr_size size)
 {
 	gui_frame_t::set_windowsize(size);
 
-	input.set_size(scr_size(get_windowsize().w - D_MARGIN_LEFT-D_MARGIN_RIGHT, D_EDIT_HEIGHT));
+	input.set_size(scr_size(get_windowsize().w - D_MARGIN_LEFT-D_MARGIN_RIGHT, D_BUTTON_HEIGHT));
 
 	view.set_pos( scr_coord(get_windowsize().w - view.get_size().w - D_MARGIN_LEFT, D_MARGIN_TOP+D_BUTTON_HEIGHT+D_V_SPACE ));
 	follow_button.set_pos( view.get_pos() + scr_coord( 0, view.get_size().h ) );

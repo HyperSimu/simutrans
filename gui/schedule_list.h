@@ -32,7 +32,7 @@ class schedule_list_gui_t : public gui_frame_t, public action_listener_t
 private:
 	player_t *player;
 
-	button_t bt_new_line, bt_edit_line, bt_delete_line, bt_withdraw_line;
+	button_t bt_new_line, bt_edit_line, bt_delete_line, bt_withdraw_line, bt_all_go_home;
 	gui_container_t cont, cont_haltestellen;
 	gui_scrollpane_t scrolly_convois, scrolly_haltestellen;
 	gui_scrolled_list_t scl;
@@ -70,8 +70,6 @@ private:
 	void rename_line();
 
 	void display(scr_coord pos);
-
-	void update_lineinfo(linehandle_t new_line);
 
 	linehandle_t line;
 
@@ -136,6 +134,8 @@ public:
 	 * called after renaming of line
 	 */
 	void update_data(linehandle_t changed_line);
+
+	void update_lineinfo(linehandle_t new_line);
 
 	// following: rdwr stuff
 	void rdwr( loadsave_t *file );

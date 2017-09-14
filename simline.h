@@ -44,6 +44,7 @@ protected:
 	linetype type;
 
 	bool withdraw;
+	bool go_home;
 
 private:
 	static karte_ptr_t welt;
@@ -196,6 +197,16 @@ public:
 	void set_withdraw( bool yes_no );
 
 	bool get_withdraw() const { return withdraw; }
+
+	void set_go_home( bool yes_no );
+
+	bool get_go_home() const { return go_home; }
+
+	// change state of go_home
+	bool change_go_home( bool yes_no );
+
+	// check the go_home status for all convoys in this line.
+  bool check_go_home_status();
 
 	player_t *get_owner() const {return player;}
 
