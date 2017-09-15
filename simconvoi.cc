@@ -2576,15 +2576,12 @@ void convoi_t::rdwr(loadsave_t *file)
 		file->rdwr_short( next_stop_index );
 		file->rdwr_short( next_reservation_index );
 	}
-	/** file input/output
-	// go_home
-	if(file->get_version()<XXXX) {
+	if(  file->get_version()<120006  ) {
 		go_home = false;
 	}
 	else {
 		file->rdwr_bool(go_home);
 	}
-	*/
 
 	if(  file->is_loading()  ) {
 		reserve_route();
