@@ -276,6 +276,10 @@ void simline_t::rdwr(loadsave_t *file)
 		file->rdwr_bool(withdraw);
 	}
 
+	if(file->get_version()>=120006) {
+		file->rdwr_bool(go_home);
+	}
+
 	// otherwise initialized to zero if loading ...
 	financial_history[0][LINE_CONVOIS] = count_convoys();
 }
