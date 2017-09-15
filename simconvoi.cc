@@ -1230,6 +1230,7 @@ void convoi_t::step()
 						grund_t *gr = welt->lookup(schedule->get_current_entry().pos);
 						if(  gr  &&  gr->get_depot()  ) {
 							betrete_depot( gr->get_depot() );
+							update_schedule_list();
 						}
 						else {
 							state = ROUTING_1;
@@ -1490,7 +1491,6 @@ void convoi_t::betrete_depot(depot_t *dep)
 	maxspeed_average_count = 0;
 	state = INITIAL;
 	set_go_home(false);
-	update_schedule_list();
 }
 
 void convoi_t::update_schedule_list()
@@ -1594,6 +1594,7 @@ void convoi_t::ziel_erreicht()
 		welt->get_message()->add_message(buf, v->get_pos().get_2d(),message_t::warnings, PLAYER_FLAG|get_owner()->get_player_nr(), IMG_EMPTY);
 
 		betrete_depot(dp);
+		update_schedule_list();
 	}
 	else {
 		// no depot reached, check for stop!

@@ -563,7 +563,7 @@ void schedule_list_gui_t::display(scr_coord pos)
 			break;
 		}
 	}
-	sint16 text_y = D_TITLEBAR_HEIGHT+bt_withdraw_line.get_pos().y + bt_withdraw_line.get_size().h + D_V_SPACE;
+	sint16 text_y = D_TITLEBAR_HEIGHT + bt_withdraw_line.get_pos().y + bt_withdraw_line.get_size().h + D_V_SPACE;
 	int len=display_proportional_clip_rgb(pos.x+RIGHT_COLUMN_OFFSET,
 		pos.y+text_y, buf, ALIGN_LEFT, SYSCOL_TEXT, true );
 
@@ -579,7 +579,7 @@ void schedule_list_gui_t::display(scr_coord pos)
 		buf.clear();
 		buf.printf( translator::translate("Capacity: %s\nLoad: %d (%d%%)"), ctmp, load, loadfactor );
 		display_multiline_text_rgb(pos.x + RIGHT_COLUMN_OFFSET + rest_width,
-			pos.y+D_TITLEBAR_HEIGHT+D_MARGIN_TOP+SCL_HEIGHT+2*D_BUTTON_HEIGHT+D_V_SPACE, buf, SYSCOL_TEXT);
+			pos.y+text_y, buf, SYSCOL_TEXT);
 	}
 }
 
