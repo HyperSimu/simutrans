@@ -485,7 +485,13 @@ bool simline_t::change_go_home( bool yes_no )
 	for (size_t i = line_managed_convoys.get_count(); i-- != 0;) {
 		line_managed_convoys[i]->change_go_home(yes_no);
 		if ( yes_no && line_managed_convoys[i]->get_go_home() ) {
-			enable_go_home &= line_managed_convoys[i]->send_to_depot(yes_no);
+			if ( has_terminal() ) {
+				// if this line has terminal stop
+			}
+			else {
+				// if this line has no terminal stops
+				enable_go_home &= line_managed_convoys[i]->send_to_depot(yes_no);
+			}
 		}
 	}
 	//update schedule list
@@ -500,6 +506,15 @@ bool simline_t::check_go_home_status()
 		go_home_status |= line_managed_convoys[i]->get_go_home();
 	}
 	return go_home_status;
+}
+
+bool simline_t::has_terminal()
+{
+	bool has_terminal = false;
+	for(size_t i = schedule->get_count(); i-- !=0;) {
+		has_terminal |= schedule->entries[i].is_terminal;
+	}
+	return has_terminal;
 }
 
 sint64 simline_t::get_stat_converted(int month, int cost_type) const

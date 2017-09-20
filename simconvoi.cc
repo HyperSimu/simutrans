@@ -1196,7 +1196,6 @@ void convoi_t::step()
 		case EDIT_SCHEDULE:
 			// schedule window closed?
 			if(schedule!=NULL  &&  schedule->is_editing_finished()) {
-
 				set_schedule(schedule);
 				schedule_target = koord3d::invalid;
 
@@ -1210,11 +1209,18 @@ void convoi_t::step()
 					// this station? then complete loading task else drive on
 					halthandle_t h = haltestelle_t::get_halt( get_pos(), get_owner() );
 					if(  h.is_bound()  &&  h==haltestelle_t::get_halt( schedule->get_current_entry().pos, get_owner() )  ) {
-						if (route.get_count() > 0) {
-							koord3d const& pos = route.back();
-							if (h == haltestelle_t::get_halt(pos, get_owner())) {
-								state = get_pos() == pos ? LOADING : DRIVING;
-								break;
+						if (  go_home  &&  schedule->get_current_entry().is_terminal  ) {
+							schedule->advance();
+							send_to_depot(true);
+							state = ROUTING_1;
+						}
+						else {
+							if (route.get_count() > 0) {
+								koord3d const& pos = route.back();
+								if (h == haltestelle_t::get_halt(pos, get_owner())) {
+									state = get_pos() == pos ? LOADING : DRIVING;
+									break;
+								}
 							}
 						}
 						else {
@@ -1813,7 +1819,7 @@ bool convoi_t::set_schedule(schedule_t * f)
 
 	// happens to be identical?
 	if(schedule!=f) {
-		// now check, we we have been bond to a line we are about to lose:
+		// now check, we have been bond to a line we are about to lose:
 		bool changed = false;
 		if(  line.is_bound()  ) {
 			if(  !f->matches( welt, line->get_schedule() )  ) {
@@ -2908,6 +2914,10 @@ station_tile_search_ready: ;
 				break;
 			}
 			else if(  !plan_halt.is_bound()  ) {
+				if( schedule->entries[wrap_i].is_terminal && go_home ) {
+					// do not load for stops after a terminal if the convoy is scheduled to going to depot
+					break;
+				}
 				if(  grund_t *gr = welt->lookup( schedule->entries[wrap_i].pos )  ) {
 					if(  gr->get_depot()  ) {
 						// do not load for stops after a depot
@@ -2943,7 +2953,8 @@ station_tile_search_ready: ;
 
 		uint16 amount = v->unload_cargo(halt);
 
-		if(  !no_load  &&  v->get_total_cargo() < v->get_cargo_max()) {
+		if(  !no_load  &&  v->get_total_cargo() < v->get_cargo_max()  &&
+				!(go_home  &&  schedule->entries[schedule->get_current_stop()].is_terminal) ) {
 			// load if: unloaded something (might go back) or previous non-filled car requested different cargo type
 			if (amount>0  ||  cargo_type_prev==NULL  ||  !cargo_type_prev->is_interchangeable(v->get_cargo_type())) {
 				// load
@@ -2990,8 +3001,19 @@ station_tile_search_ready: ;
 	}
 
 	// loading is finished => maybe drive on
-	if(  loading_level >= loading_limit  ||  no_load
-		||  (schedule->get_current_entry().waiting_time_shift > 0  &&  welt->get_ticks() - arrived_time > (welt->ticks_per_world_month >> (16 - schedule->get_current_entry().waiting_time_shift)) ) ) {
+	if(  loading_level >= loading_limit  ||  no_load  ||  (go_home  &&  schedule->get_current_entry().is_terminal)  ||  (schedule->get_current_entry().waiting_time_shift > 0
+		&&  welt->get_ticks() - arrived_time > (welt->ticks_per_world_month >> (16 - schedule->get_current_entry().waiting_time_shift)) ) ) {
+
+		if(  go_home  &&  schedule->get_current_entry().is_terminal  ) {
+			// if this convoy is scheduled to going to depot and reached to terminal stop, it will go to depot
+			if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info+self.get_id()))) {
+				info->route_search_start();
+			}
+			schedule->advance();
+			send_to_depot(true);
+			state = ROUTING_1;
+			return;
+		}
 
 		if(  withdraw  &&  (loading_level == 0  ||  goods_catg_index.empty())  ) {
 			// destroy when empty
@@ -3598,7 +3620,7 @@ void convoi_t::set_withdraw(bool new_withdraw)
 void convoi_t::change_go_home(bool yes_no)
 {
 	// test if convoi in depot and not driving
-	grund_t *gr = welt->lookup( get_pos());
+	grund_t *gr = welt->lookup( get_pos() );
 	if(  gr  &&  gr->get_depot()  &&  state == INITIAL  ) {
 		// do not touch line bound convois in depots
 		set_go_home(false);
@@ -3606,8 +3628,10 @@ void convoi_t::change_go_home(bool yes_no)
 	}
 	set_go_home(yes_no);
 	if ( get_go_home() ) {
-		if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id()))) {
-			info->route_search_start();
+		if ( !get_line()->has_terminal() ) {
+			if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id())) ) {
+				info->route_search_start();
+			}
 		}
 	}
 	else {

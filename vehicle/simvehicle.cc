@@ -1763,9 +1763,15 @@ void vehicle_t::display_after(int xpos, int ypos, bool is_gobal) const
 			case convoi_t::DRIVING:
 				if(  state>=1  ) {
 					grund_t const* const gr = welt->lookup(cnv->get_route()->back());
-					if(  gr  &&  gr->get_depot()  ) {
-						tstrncpy( tooltip_text, translator::translate("go home"), lengthof(tooltip_text) );
-						color = color_idx_to_rgb(COL_GREEN);
+					if(  cnv->get_go_home()  ) {
+						if(  gr  &&  gr->get_depot()  ) {
+							tstrncpy( tooltip_text, translator::translate("go home"), lengthof(tooltip_text) );
+							color = color_idx_to_rgb(COL_GREEN);
+						}
+						else {
+							tstrncpy( tooltip_text, translator::translate("go home after terminal"), lengthof(tooltip_text) );
+							color = color_idx_to_rgb(COL_GREEN);
+						}
 					}
 					else if(  cnv->get_no_load()  ) {
 						tstrncpy( tooltip_text, translator::translate("no load"), lengthof(tooltip_text) );

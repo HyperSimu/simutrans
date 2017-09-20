@@ -102,6 +102,9 @@ static void gimme_stop_name(cbuffer_t& buf, karte_t* welt, player_t const* const
 	char const* what;
 	halthandle_t const halt = haltestelle_t::get_halt(entry.pos, player_);
 	if (halt.is_bound()) {
+		if (entry.is_terminal) {
+			buf.printf("T: ");
+		}
 		if (entry.minimum_loading != 0) {
 			buf.printf("%d%% ", entry.minimum_loading);
 		}
@@ -307,6 +310,12 @@ schedule_gui_t::schedule_gui_t(schedule_t* schedule_, player_t* player_, convoih
 	lb_load.align_to( &numimp_load, ALIGN_CENTER_V, scr_coord( D_MARGIN_LEFT, 0 ) );
 	add_component( &lb_load );
 
+	bt_terminal.init( button_t::square_state, "Terminal", scr_coord(BUTTON3_X, ypos) );
+	bt_terminal.set_tooltip("Set the current stop as a terminal");
+	bt_terminal.add_listener(this);
+	bt_terminal.pressed = false;
+	add_component( &bt_terminal );
+
 	ypos += numimp_load.get_size().h;
 
 	if(  schedule->get_current_entry().waiting_time_shift==0  ) {
@@ -423,6 +432,8 @@ void schedule_gui_t::update_selection()
 		schedule->set_current_stop( min(schedule->get_count()-1,schedule->get_current_stop()) );
 		const uint8 current_stop = schedule->get_current_stop();
 		if(  haltestelle_t::get_halt(schedule->entries[current_stop].pos, player).is_bound()  ) {
+			bt_terminal.enable();
+			bt_terminal.pressed = schedule->entries[current_stop].is_terminal;
 			lb_load.set_color( SYSCOL_TEXT );
 			numimp_load.enable();
 			numimp_load.set_value( schedule->entries[current_stop].minimum_loading );
@@ -437,6 +448,7 @@ void schedule_gui_t::update_selection()
 			}
 		}
 		else {
+			bt_terminal.disable();
 			lb_load.set_color( SYSCOL_BUTTON_TEXT_DISABLED );
 			numimp_load.disable();
 			numimp_load.set_value( 0 );
@@ -557,6 +569,13 @@ DBG_MESSAGE("schedule_gui_t::action_triggered()","komp=%p combo=%p",komp,&line_s
 		bt_insert.pressed = false;
 		bt_remove.pressed = true;
 		update_tool( false );
+	}
+	else if(komp == &bt_terminal) {
+		if (!schedule->empty()) {
+			bt_terminal.pressed ^= 1;
+			schedule->entries[schedule->get_current_stop()].is_terminal = bt_terminal.pressed;
+			update_selection();
+		}
 	}
 	else if(komp == &numimp_load) {
 		if (!schedule->empty()) {

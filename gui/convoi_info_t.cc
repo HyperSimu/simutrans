@@ -242,12 +242,8 @@ void convoi_info_t::draw(scr_coord pos, scr_size size)
 			else {
 				go_home_button.enable();
 			}
-
-			if(  grund_t* gr=welt->lookup(cnv->get_schedule()->get_current_entry().pos)  ) {
-				go_home_button.pressed = cnv->get_go_home();
-				cnv->set_go_home(gr->get_depot() != NULL);
-			}
-
+			
+			go_home_button.pressed = cnv->get_go_home();
 			details_button.pressed = win_get_magic( magic_convoi_detail+cnv.get_id() );
 
 			no_load_button.pressed = cnv->get_no_load();

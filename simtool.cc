@@ -6758,7 +6758,7 @@ bool tool_change_convoi_t::init( player_t *player )
 					bool find_depot = cnv->send_to_depot(is_local_execution());
 
 					if (is_local_execution()) {
-						if( find_depot ){
+						if( find_depot ) {
 							create_win( new news_img("Convoi has been sent\nto the nearest depot\nof appropriate type.\n"), w_time_delete, magic_none);
 						}
 						else {
@@ -7033,7 +7033,12 @@ bool tool_change_line_t::init( player_t *player )
 
 					if (line->get_go_home()) {
 						if (enable_go_home) {
-							create_win( new news_img("Each convoi in this line\nhas been sent to\nthe nearest depot.\n"), w_time_delete, magic_none);
+							if (line->has_terminal()) {
+								create_win( new news_img("After reaching to a terminal,\neach convoi in this line\nwill be sent to\nthe nearest depot.\n"), w_time_delete, magic_none);
+							}
+							else {
+								create_win( new news_img("Each convoi in this line\nhas been sent to\nthe nearest depot.\n"), w_time_delete, magic_none);
+							}
 						}
 						else {
 							create_win( new news_img("Some convoi in this line\ncan not found home depot!\nYou need to send the\nconvoi to the depot\nmanually.\n"), w_time_delete, magic_none);

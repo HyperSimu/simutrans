@@ -93,6 +93,8 @@ private:
 	gui_label_t lb_load;
 	gui_numberinput_t numimp_load;
 
+	button_t bt_terminal;  // set stop as a terminal
+
 	char str_parts_month[32];
 
 	schedule_gui_stats_t stats;

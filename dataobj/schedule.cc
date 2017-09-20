@@ -23,7 +23,7 @@
 #include "../tpl/slist_tpl.h"
 
 
-schedule_entry_t schedule_t::dummy_entry(koord3d::invalid, 0, 0);
+schedule_entry_t schedule_t::dummy_entry(koord3d::invalid, 0, 0, false);
 
 
 schedule_t::schedule_t(loadsave_t* const file)
@@ -119,7 +119,7 @@ halthandle_t schedule_t::get_prev_halt( player_t *player ) const
 }
 
 
-bool schedule_t::insert(const grund_t* gr, uint8 minimum_loading, uint8 waiting_time_shift )
+bool schedule_t::insert(const grund_t* gr, uint8 minimum_loading, uint8 waiting_time_shift, bool is_terminal )
 {
 	// stored in minivec, so we have to avoid adding too many
 	if(  entries.get_count()>=254  ) {
@@ -128,7 +128,7 @@ bool schedule_t::insert(const grund_t* gr, uint8 minimum_loading, uint8 waiting_
 	}
 
 	if(  is_stop_allowed(gr)  ) {
-		entries.insert_at(current_stop, schedule_entry_t(gr->get_pos(), minimum_loading, waiting_time_shift));
+		entries.insert_at(current_stop, schedule_entry_t(gr->get_pos(), minimum_loading, waiting_time_shift, is_terminal));
 		current_stop ++;
 		return true;
 	}
@@ -141,7 +141,7 @@ bool schedule_t::insert(const grund_t* gr, uint8 minimum_loading, uint8 waiting_
 
 
 
-bool schedule_t::append(const grund_t* gr, uint8 minimum_loading, uint8 waiting_time_shift)
+bool schedule_t::append(const grund_t* gr, uint8 minimum_loading, uint8 waiting_time_shift, bool is_terminal)
 {
 	// stored in minivec, so we have to avoid adding too many
 	if(entries.get_count()>=254) {
@@ -150,7 +150,7 @@ bool schedule_t::append(const grund_t* gr, uint8 minimum_loading, uint8 waiting_
 	}
 
 	if(is_stop_allowed(gr)) {
-		entries.append(schedule_entry_t(gr->get_pos(), minimum_loading, waiting_time_shift), 4);
+		entries.append(schedule_entry_t(gr->get_pos(), minimum_loading, waiting_time_shift, is_terminal), 4);
 		return true;
 	}
 	else {
@@ -237,7 +237,7 @@ void schedule_t::rdwr(loadsave_t *file)
 			uint32 dummy;
 			pos.rdwr(file);
 			file->rdwr_long(dummy);
-			entries.append(schedule_entry_t(pos, (uint8)dummy, 0));
+			entries.append(schedule_entry_t(pos, (uint8)dummy, 0, false));
 		}
 	}
 	else {
@@ -251,6 +251,12 @@ void schedule_t::rdwr(loadsave_t *file)
 			file->rdwr_byte(entries[i].minimum_loading);
 			if(file->get_version()>=99018) {
 				file->rdwr_byte(entries[i].waiting_time_shift);
+			}
+			if(file->get_version()>=120006) {
+				file->rdwr_bool(entries[i].is_terminal);
+			}
+			else {
+				entries[i].is_terminal = false;
 			}
 		}
 	}
@@ -409,7 +415,7 @@ void schedule_t::sprintf_schedule( cbuffer_t &buf ) const
 {
 	buf.printf("%u|%d|", current_stop, (int)get_type());
 	FOR(minivec_tpl<schedule_entry_t>, const& i, entries) {
-		buf.printf("%s,%i,%i|", i.pos.get_str(), (int)i.minimum_loading, (int)i.waiting_time_shift);
+		buf.printf("%s,%i,%i,%i|", i.pos.get_str(), (int)i.minimum_loading, (int)i.waiting_time_shift, (int)i.is_terminal);
 	}
 }
 
@@ -452,24 +458,24 @@ bool schedule_t::sscanf_schedule( const char *ptr )
 	p++;
 	// now scan the entries
 	while(  *p>0  ) {
-		sint16 values[5];
-		for(  sint8 i=0;  i<5;  i++  ) {
+		sint16 values[6];
+		for(  sint8 i=0;  i<6;  i++  ) {
 			values[i] = atoi( p );
 			while(  *p  &&  (*p!=','  &&  *p!='|')  ) {
 				p++;
 			}
-			if(  i<4  &&  *p!=','  ) {
+			if(  i<5  &&  *p!=','  ) {
 				dbg->error( "schedule_t::sscanf_schedule()","incomplete string!" );
 				return false;
 			}
-			if(  i==4  &&  *p!='|'  ) {
+			if(  i==5  &&  *p!='|'  ) {
 				dbg->error( "schedule_t::sscanf_schedule()","incomplete entry termination!" );
 				return false;
 			}
 			p++;
 		}
 		// ok, now we have a complete entry
-		entries.append(schedule_entry_t(koord3d(values[0], values[1], values[2]), values[3], values[4]));
+		entries.append(schedule_entry_t(koord3d(values[0], values[1], values[2]), values[3], values[4], values[5]));
 	}
 	return true;
 }

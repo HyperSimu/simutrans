@@ -208,6 +208,9 @@ public:
 	// check the go_home status for all convoys in this line.
   bool check_go_home_status();
 
+	// check if there is a terminal stop in this line
+	bool has_terminal();
+
 	player_t *get_owner() const {return player;}
 
 };
