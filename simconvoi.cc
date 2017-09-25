@@ -2914,7 +2914,7 @@ station_tile_search_ready: ;
 				break;
 			}
 			else if(  !plan_halt.is_bound()  ) {
-				if( schedule->entries[wrap_i].is_terminal && go_home ) {
+				if(  schedule->entries[wrap_i].is_terminal && go_home  ) {
 					// do not load for stops after a terminal if the convoy is scheduled to going to depot
 					break;
 				}
@@ -2954,7 +2954,7 @@ station_tile_search_ready: ;
 		uint16 amount = v->unload_cargo(halt);
 
 		if(  !no_load  &&  v->get_total_cargo() < v->get_cargo_max()  &&
-				!(go_home  &&  schedule->entries[schedule->get_current_stop()].is_terminal) ) {
+				!(go_home  &&  schedule->get_current_entry().is_terminal) ) {
 			// load if: unloaded something (might go back) or previous non-filled car requested different cargo type
 			if (amount>0  ||  cargo_type_prev==NULL  ||  !cargo_type_prev->is_interchangeable(v->get_cargo_type())) {
 				// load
