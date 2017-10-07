@@ -667,7 +667,7 @@ void vehicle_t::set_convoi(convoi_t *c)
  * @return sum of unloaded goods
  * @author Hj. Malthaner
  */
-uint16 vehicle_t::unload_cargo(halthandle_t halt)
+uint16 vehicle_t::unload_cargo(halthandle_t halt, bool unload_all)
 {
 	uint16 sum_menge = 0, sum_delivered = 0, index = 0;
 	if(  !halt.is_bound()  ) {
@@ -678,7 +678,12 @@ uint16 vehicle_t::unload_cargo(halthandle_t halt)
 		if(  !fracht.empty()  ) {
 
 			for(  slist_tpl<ware_t>::iterator i = fracht.begin(), end = fracht.end();  i != end;  ) {
-				const ware_t& tmp = *i;
+				ware_t& tmp = *i;
+
+				//force unload all
+				if ( unload_all ) {
+					tmp.set_zwischenziel(halt);
+				}
 
 				halthandle_t end_halt = tmp.get_ziel();
 				halthandle_t via_halt = tmp.get_zwischenziel();

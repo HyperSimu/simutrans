@@ -2951,7 +2951,9 @@ station_tile_search_ready: ;
 			v->last_stop_pos = v->get_pos();
 		}
 
-		uint16 amount = v->unload_cargo(halt);
+		// unload all if the convoy will go to depot next
+		grund_t *gr = welt->lookup( schedule->entries[(schedule->get_current_stop()+1)%schedule->get_count()].pos );
+		uint16 amount = v->unload_cargo(halt, ((go_home && schedule->get_current_entry().is_terminal) || (gr && gr->get_depot())) );
 
 		if(  !no_load  &&  v->get_total_cargo() < v->get_cargo_max()  &&
 				!(go_home  &&  schedule->get_current_entry().is_terminal) ) {
