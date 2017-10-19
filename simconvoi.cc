@@ -1237,7 +1237,7 @@ void convoi_t::step()
 						grund_t *gr = welt->lookup(schedule->get_current_entry().pos);
 						if(  gr  &&  gr->get_depot()  ) {
 							betrete_depot( gr->get_depot() );
-							update_schedule_list();
+							if(get_line().is_bound())	update_schedule_list();
 						}
 						else {
 							state = ROUTING_1;
@@ -1600,7 +1600,7 @@ void convoi_t::ziel_erreicht()
 		welt->get_message()->add_message(buf, v->get_pos().get_2d(),message_t::warnings, PLAYER_FLAG|get_owner()->get_player_nr(), IMG_EMPTY);
 
 		betrete_depot(dp);
-		update_schedule_list();
+		if(get_line().is_bound())	update_schedule_list();
 	}
 	else {
 		// no depot reached, check for stop!
