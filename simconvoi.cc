@@ -2952,11 +2952,11 @@ station_tile_search_ready: ;
 		}
 
 		// unload all if the convoy will go to depot next
-		grund_t *gr = welt->lookup( schedule->entries[(schedule->get_current_stop()+1)%schedule->get_count()].pos );
-		uint16 amount = v->unload_cargo(halt, ((go_home && schedule->get_current_entry().is_terminal) || (gr && gr->get_depot())) );
+		const grund_t *gr = welt->lookup( schedule->entries[(schedule->get_current_stop()+1)%schedule->get_count()].pos );
+		const bool next_depot = gr  &&  gr->get_depot();
+		uint16 amount = v->unload_cargo(halt, next_depot || (go_home && schedule->get_current_entry().is_terminal) );
 
-		if(  !no_load  &&  v->get_total_cargo() < v->get_cargo_max()  &&
-				!(go_home  &&  schedule->get_current_entry().is_terminal) ) {
+		if(  !no_load  &&  !next_depot  &&  v->get_total_cargo() < v->get_cargo_max()  &&  !(go_home  &&  schedule->get_current_entry().is_terminal) ) {
 			// load if: unloaded something (might go back) or previous non-filled car requested different cargo type
 			if (amount>0  ||  cargo_type_prev==NULL  ||  !cargo_type_prev->is_interchangeable(v->get_cargo_type())) {
 				// load
