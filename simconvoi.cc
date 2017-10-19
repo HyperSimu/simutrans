@@ -3631,7 +3631,7 @@ void convoi_t::change_go_home(bool yes_no)
 	}
 	set_go_home(yes_no);
 	if ( get_go_home() ) {
-		if ( !get_line()->has_terminal() ) {
+		if ( has_terminal() ) {
 			if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id())) ) {
 				info->route_search_start();
 			}
@@ -3702,6 +3702,17 @@ bool convoi_t::send_to_depot(bool local)
 	delete shortest_route;
 
 	return enable_go_home;
+}
+
+bool convoi_t::has_terminal()
+{
+	bool has_terminal = false;
+	if( schedule != NULL ) {
+		for(uint8 i = 0; i < schedule->get_count(); ++i) {
+			has_terminal |= schedule->entries[i].is_terminal;
+		}
+	}
+	return has_terminal;
 }
 
 /**

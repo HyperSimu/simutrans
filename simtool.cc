@@ -7034,7 +7034,7 @@ bool tool_change_line_t::init( player_t *player )
 
 					if (line->get_go_home()) {
 						if (enable_go_home) {
-							if (line->has_terminal()) {
+							if (line->get_convoy(0)->has_terminal()) {
 								create_win( new news_img("After reaching to a terminal,\neach convoi in this line\nwill be sent to\nthe nearest depot.\n"), w_time_delete, magic_none);
 							}
 							else {

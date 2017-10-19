@@ -852,6 +852,9 @@ public:
 	 */
 	bool send_to_depot(bool local);
 
+	// check if there is a terminal stop in the schedule
+	bool has_terminal();
+
 	/**
 	 * this give the index of the next signal or the end of the route
 	 * convois will slow down before it, if this is not a waypoint or the cannot pass

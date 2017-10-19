@@ -39,7 +39,7 @@ public:
 	enum linetype { line = 0, truckline = 1, trainline = 2, shipline = 3, airline = 4, monorailline=5, tramline=6, maglevline=7, narrowgaugeline=8, MAX_LINE_TYPE};
 
 protected:
-	schedule_t * schedule;
+	schedule_t *schedule;
 	player_t *player;
 	linetype type;
 
@@ -207,9 +207,6 @@ public:
 
 	// check the go_home status for all convoys in this line.
   bool check_go_home_status();
-
-	// check if there is a terminal stop in this line
-	bool has_terminal();
 
 	player_t *get_owner() const {return player;}
 
