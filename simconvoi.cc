@@ -3631,7 +3631,7 @@ void convoi_t::change_go_home(bool yes_no)
 	}
 	set_go_home(yes_no);
 	if ( get_go_home() ) {
-		if ( has_terminal() ) {
+		if ( !has_terminal() ) {
 			if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id())) ) {
 				info->route_search_start();
 			}
