@@ -441,7 +441,7 @@ void simline_t::recalc_catg_index()
 		// what goods can this line transport?
 		convoi_t const& cnv = *i;
 		withdraw &= cnv.get_withdraw();
-		go_home &= cnv.get_go_home();
+		go_home &= (cnv.get_go_home()!=convoi_t::IN_SERVICE);
 		FOR(minivec_tpl<uint8>, const catg_index, cnv.get_goods_catg_index()) {
 			goods_catg_index.append_unique( catg_index );
 		}
@@ -483,8 +483,8 @@ bool simline_t::change_go_home( bool yes_no )
 	set_go_home(yes_no);
 	bool enable_go_home = true;
 	for (size_t i = line_managed_convoys.get_count(); i-- != 0;) {
-		line_managed_convoys[i]->change_go_home(yes_no);
-		if ( yes_no && line_managed_convoys[i]->get_go_home() ) {
+		line_managed_convoys[i]->change_go_home( yes_no ? convoi_t::RESERVED_GO_DEPOT : convoi_t::IN_SERVICE );
+		if ( yes_no && line_managed_convoys[i]->get_go_home()!=convoi_t::IN_SERVICE ) {
 			if ( line_managed_convoys[i]->has_terminal() ) {
 				// if this line has terminal stop
 			}
@@ -503,7 +503,7 @@ bool simline_t::check_go_home_status()
 {
 	bool go_home_status = false;
 	for (size_t i = line_managed_convoys.get_count(); i-- != 0;) {
-		go_home_status |= line_managed_convoys[i]->get_go_home();
+		go_home_status |= (line_managed_convoys[i]->get_go_home()!=convoi_t::IN_SERVICE);
 	}
 	return go_home_status;
 }

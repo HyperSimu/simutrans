@@ -125,7 +125,7 @@ void convoi_t::init(player_t *player)
 	withdraw = false;
 	has_obsolete = false;
 	no_load = false;
-	go_home = false;
+	go_home_state = IN_SERVICE;
 	wait_lock = 0;
 	arrived_time = 0;
 
@@ -1209,7 +1209,7 @@ void convoi_t::step()
 					// this station? then complete loading task else drive on
 					halthandle_t h = haltestelle_t::get_halt( get_pos(), get_owner() );
 					if(  h.is_bound()  &&  h==haltestelle_t::get_halt( schedule->get_current_entry().pos, get_owner() )  ) {
-							if (  go_home  &&  schedule->get_current_entry().is_terminal  ) {
+							if (  go_home_state == RESERVED_GO_DEPOT  &&  schedule->get_current_entry().is_terminal  ) {
 								schedule->advance();
 								send_to_depot(true);
 								state = ROUTING_1;
@@ -1496,7 +1496,7 @@ void convoi_t::betrete_depot(depot_t *dep)
 
 	maxspeed_average_count = 0;
 	state = INITIAL;
-	set_go_home(false);
+	set_go_home(IN_SERVICE);
 }
 
 void convoi_t::update_schedule_list()
@@ -1594,7 +1594,7 @@ void convoi_t::ziel_erreicht()
 		// we still book the money for the trip; however, the freight will be deleted (by the vehicle in the depot itself)
 		calc_gewinn();
 
-		go_home = false;
+		go_home_state = IN_SERVICE;
 		akt_speed = 0;
 		buf.printf( translator::translate("%s has entered a depot."), get_name() );
 		welt->get_message()->add_message(buf, v->get_pos().get_2d(),message_t::warnings, PLAYER_FLAG|get_owner()->get_player_nr(), IMG_EMPTY);
@@ -2584,10 +2584,10 @@ void convoi_t::rdwr(loadsave_t *file)
 		file->rdwr_short( next_reservation_index );
 	}
 	if(  file->get_version()<120006  ) {
-		go_home = false;
+		go_home_state = IN_SERVICE;
 	}
 	else {
-		file->rdwr_bool(go_home);
+		file->rdwr_byte( go_home_state );
 	}
 
 	if(  file->is_loading()  ) {
@@ -2914,7 +2914,7 @@ station_tile_search_ready: ;
 				break;
 			}
 			else if(  !plan_halt.is_bound()  ) {
-				if(  schedule->entries[wrap_i].is_terminal && go_home  ) {
+				if(  schedule->entries[wrap_i].is_terminal && go_home_state==RESERVED_GO_DEPOT  ) {
 					// do not load for stops after a terminal if the convoy is scheduled to going to depot
 					break;
 				}
@@ -2954,9 +2954,10 @@ station_tile_search_ready: ;
 		// unload all if the convoy will go to depot next
 		const grund_t *gr = welt->lookup( schedule->entries[(schedule->get_current_stop()+1)%schedule->get_count()].pos );
 		const bool next_depot = gr  &&  gr->get_depot();
-		uint16 amount = v->unload_cargo(halt, next_depot || (go_home && schedule->get_current_entry().is_terminal) );
+		uint16 amount = v->unload_cargo(halt, next_depot || (go_home_state==RESERVED_GO_DEPOT && schedule->get_current_entry().is_terminal) );
 
-		if(  !no_load  &&  !next_depot  &&  v->get_total_cargo() < v->get_cargo_max()  &&  !(go_home  &&  schedule->get_current_entry().is_terminal) ) {
+		if(  !no_load  &&  !next_depot  &&  v->get_total_cargo() < v->get_cargo_max()  &&
+				!(go_home_state==RESERVED_GO_DEPOT  &&  schedule->get_current_entry().is_terminal) ) {
 			// load if: unloaded something (might go back) or previous non-filled car requested different cargo type
 			if (amount>0  ||  cargo_type_prev==NULL  ||  !cargo_type_prev->is_interchangeable(v->get_cargo_type())) {
 				// load
@@ -3003,10 +3004,10 @@ station_tile_search_ready: ;
 	}
 
 	// loading is finished => maybe drive on
-	if(  loading_level >= loading_limit  ||  no_load  ||  (go_home  &&  schedule->get_current_entry().is_terminal)  ||  (schedule->get_current_entry().waiting_time_shift > 0
+	if(  loading_level >= loading_limit  ||  no_load  ||  (go_home_state==RESERVED_GO_DEPOT  &&  schedule->get_current_entry().is_terminal)  ||  (schedule->get_current_entry().waiting_time_shift > 0
 		&&  welt->get_ticks() - arrived_time > (welt->ticks_per_world_month >> (16 - schedule->get_current_entry().waiting_time_shift)) ) ) {
 
-		if(  go_home  &&  schedule->get_current_entry().is_terminal  ) {
+		if(  go_home_state==RESERVED_GO_DEPOT  &&  schedule->get_current_entry().is_terminal  ) {
 			// if this convoy is scheduled to going to depot and reached to terminal stop, it will go to depot
 			if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info+self.get_id()))) {
 				info->route_search_start();
@@ -3620,17 +3621,17 @@ void convoi_t::set_withdraw(bool new_withdraw)
 }
 
 // convoi will go to depot if it is not searching for route.
-void convoi_t::change_go_home(bool yes_no)
+void convoi_t::change_go_home(uint8 new_state)
 {
 	// test if convoi in depot and not driving
 	grund_t *gr = welt->lookup( get_pos() );
 	if(  gr  &&  gr->get_depot()  &&  state == INITIAL  ) {
 		// do not touch line bound convois in depots
-		set_go_home(false);
+		set_go_home(IN_SERVICE);
 		return;
 	}
-	set_go_home(yes_no);
-	if ( get_go_home() ) {
+	set_go_home(new_state);
+	if ( get_go_home() != IN_SERVICE ) {
 		if ( !has_terminal() ) {
 			if (convoi_info_t *info = dynamic_cast<convoi_info_t*>(win_get_magic( magic_convoi_info + self.get_id())) ) {
 				info->route_search_start();
@@ -3698,6 +3699,10 @@ bool convoi_t::send_to_depot(bool local)
 		schedule->insert(welt->lookup(home));
 		schedule->set_current_stop( (schedule->get_current_stop()+schedule->get_count()-1)%schedule->get_count() );
 		set_schedule(schedule);
+		go_home_state = GOING_DEPOT;
+	}
+	else {
+		go_home_state = IN_SERVICE;
 	}
 	delete shortest_route;
 

@@ -6752,9 +6752,9 @@ bool tool_change_convoi_t::init( player_t *player )
 		{
 			// limit update to certain states that are considered to be safe for schedule updates
 			if( cnv->get_state() != convoi_t::EDIT_SCHEDULE ) {
-				cnv->change_go_home( !cnv->get_go_home() );
+				cnv->change_go_home( cnv->get_go_home()==convoi_t::IN_SERVICE ? convoi_t::GOING_DEPOT : convoi_t::IN_SERVICE );
 
-				if( cnv->get_go_home() ) {
+				if( cnv->get_go_home() != convoi_t::IN_SERVICE ) {
 					// go to depot
 					bool find_depot = cnv->send_to_depot(is_local_execution());
 

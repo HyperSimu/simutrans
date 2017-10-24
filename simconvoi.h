@@ -57,7 +57,8 @@ public:
 	 */
 	enum { default_vehicle_length=4};
 
-	enum states {INITIAL,
+	enum states {
+		INITIAL,
 		EDIT_SCHEDULE,
 		ROUTING_1,
 		DUMMY4,
@@ -75,6 +76,12 @@ public:
 		LEAVING_DEPOT,
 		ENTERING_DEPOT,
 		MAX_STATES
+	};
+
+	enum {
+		IN_SERVICE,
+		RESERVED_GO_DEPOT,
+		GOING_DEPOT
 	};
 
 private:
@@ -170,7 +177,7 @@ private:
 	* the convoi is going to depot
 	* @author Hyper
 	*/
-	bool go_home;
+	uint8 go_home_state;
 
 	/**
 	* the convoi caches its freight info; it is only recalculation after loading or resorting
@@ -886,12 +893,12 @@ public:
 
 	void set_no_load(bool new_no_load) { no_load = new_no_load; }
 
-	bool get_go_home() const { return go_home; }
+	uint8 get_go_home() const { return go_home_state; }
 
-	void set_go_home(bool new_go_home) { go_home = new_go_home; }
+	void set_go_home(uint8 new_go_home_state) { go_home_state = new_go_home_state; }
 
 	// change state of go_home
-	void change_go_home(bool yes_no);
+	void change_go_home(uint8 new_state);
 
 	void must_recalc_data() { recalc_data = true; }
 	void must_recalc_data_front() { recalc_data_front = true; }

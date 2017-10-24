@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2001 Hansjörg Malthaner
+ * Copyright (c) 1997 - 2001 HanjsÃ¶rg Malthaner
  *
  * This file is part of the Simutrans project under the artistic licence.
  * (see licence.txt)
@@ -242,8 +242,11 @@ void convoi_info_t::draw(scr_coord pos, scr_size size)
 			else {
 				go_home_button.enable();
 			}
-			
-			go_home_button.pressed = cnv->get_go_home();
+
+			if(  grund_t* gr=welt->lookup(cnv->get_schedule()->get_current_entry().pos)  ) {
+				go_home_button.pressed = (gr->get_depot() != NULL) || cnv->get_go_home() != convoi_t::IN_SERVICE;
+				if ( gr->get_depot() == NULL && cnv->get_go_home() == convoi_t::GOING_DEPOT ) cnv->set_go_home(convoi_t::IN_SERVICE);
+			}
 			details_button.pressed = win_get_magic( magic_convoi_detail+cnv.get_id() );
 
 			no_load_button.pressed = cnv->get_no_load();
