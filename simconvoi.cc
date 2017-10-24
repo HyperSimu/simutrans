@@ -1209,18 +1209,11 @@ void convoi_t::step()
 					// this station? then complete loading task else drive on
 					halthandle_t h = haltestelle_t::get_halt( get_pos(), get_owner() );
 					if(  h.is_bound()  &&  h==haltestelle_t::get_halt( schedule->get_current_entry().pos, get_owner() )  ) {
-							if (  go_home_state == RESERVED_GO_DEPOT  &&  schedule->get_current_entry().is_terminal  ) {
-								schedule->advance();
-								send_to_depot(true);
-								state = ROUTING_1;
-							}
-							else {
-								if (route.get_count() > 0) {
-									koord3d const& pos = route.back();
-									if (h == haltestelle_t::get_halt(pos, get_owner())) {
-										state = get_pos() == pos ? LOADING : DRIVING;
-										break;
-									}
+							if (route.get_count() > 0) {
+								koord3d const& pos = route.back();
+								if (h == haltestelle_t::get_halt(pos, get_owner())) {
+									state = get_pos() == pos ? LOADING : DRIVING;
+									break;
 								}
 							}
 						}
