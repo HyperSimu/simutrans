@@ -1771,11 +1771,11 @@ void vehicle_t::display_after(int xpos, int ypos, bool is_gobal) const
 				if(  state>=1  ) {
 					switch (  cnv->get_go_home()  ) {
 						case convoi_t::RESERVED_GO_DEPOT:
-							tstrncpy( tooltip_text, translator::translate("go home"), lengthof(tooltip_text) );
+							tstrncpy( tooltip_text, translator::translate("go home after terminal"), lengthof(tooltip_text) );
 							color = color_idx_to_rgb(COL_GREEN);
 							break;
 						case convoi_t::GOING_DEPOT:
-							tstrncpy( tooltip_text, translator::translate("go home after terminal"), lengthof(tooltip_text) );
+							tstrncpy( tooltip_text, translator::translate("go home"), lengthof(tooltip_text) );
 							color = color_idx_to_rgb(COL_GREEN);
 							break;
 						default:
