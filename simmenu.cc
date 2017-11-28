@@ -233,7 +233,7 @@ tool_t *create_tool(int toolnr)
 }
 
 
-static uint16 str_to_key( const char *str )
+static utf32 str_to_key( const char *str )
 {
 	if(  str[1]==','  ||  str[1]<=' ') {
 		return (uint8)*str;
@@ -241,8 +241,8 @@ static uint16 str_to_key( const char *str )
 	else {
 		// check for utf8
 		if(  127<(uint8)*str  ) {
-			size_t len=0;
-			uint16 c = utf8_to_utf16( (const utf8 *)str, &len );
+			size_t len = 0;
+			utf32 const c = utf8_decoder_t::decode((utf8 const *)str, len);
 			if(str[len]==',') {
 				return c;
 			}
@@ -956,7 +956,8 @@ bool two_click_tool_t::is_work_here_network_save(player_t *player, koord3d pos )
 	uint8 value = is_valid_pos( player, pos, error, koord3d::invalid );
 	DBG_MESSAGE("two_click_tool_t::is_work_here_network_save", "Position %s valid=%d", pos.get_str(), value );
 	if(  value == 0  ) {
-		return false;
+		// cannot work here at all -> safe
+		return true;
 	}
 
 	// work directly if possible and ctrl is NOT pressed
