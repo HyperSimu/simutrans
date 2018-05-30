@@ -269,6 +269,10 @@ void export_goods_desc(HSQUIRRELVM vm)
 	 * @return true if this==other
 	 */
 	register_method(vm, &are_equal, "is_equal", true);
+	/**
+	 * @returns if object is still valid.
+	 */
+	export_is_valid<const obj_named_desc_t*>(vm); //register_function("is_valid")
 	end_class(vm);
 
 	/**
@@ -632,7 +636,7 @@ void export_goods_desc(HSQUIRRELVM vm)
 	/**
 	 * Descriptor of roadsigns and signals.
 	 */
-	begin_desc_class(vm, "sign_desc_x", "obj_desc_x", (GETDESCFUNC)param<const roadsign_desc_t*>::getfunc());
+	begin_desc_class(vm, "sign_desc_x", "obj_desc_transport_x", (GETDESCFUNC)param<const roadsign_desc_t*>::getfunc());
 
 	/**
 	 * @returns true if sign is one-way sign

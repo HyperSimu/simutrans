@@ -635,20 +635,10 @@ void grund_t::info(cbuffer_t& buf) const
 	if(get_weg_ribi_unmasked(water_wt)) {
 		buf.printf("\nwater ribi: %i",get_weg_ribi_unmasked(water_wt));
 	}
-	buf.printf("\ndraw_as_obj= %i",(flags&draw_as_obj)!=0);
-	buf.append("\nclimates= ");
-
-	bool following = false;
-	climate cl = welt->get_climate( get_pos().get_2d() );
-	for(  uint16 i=0;  i < MAX_CLIMATES;  i++  ) {
-		if(  cl & (1<<i)  ) {
-			if(  following  ) {
-				buf.append( ", " );
-			}
-			following = true;
-			buf.append( translator::translate( ground_desc_t::get_climate_name_from_bit((climate)i) ) );
-		}
+	if(is_water()) {
+		buf.printf("\ncanal ribi: %i", ((const wasser_t*)this)->get_canal_ribi());
 	}
+	buf.printf("\ndraw_as_obj= %i",(flags&draw_as_obj)!=0);
 #endif
 }
 
@@ -880,6 +870,12 @@ void grund_t::calc_back_image(const sint8 hgt, const slope_t::type slope_this)
 			if(  const grund_t *gr=welt->lookup_kartenboden(k + testdir[i] - koord(step,step))  ) {
 				sint16 h = gr->get_disp_height()*scale_z_step;
 				sint8 s = gr->get_disp_slope();
+				// tile should hide anything in tunnel portal behind (tile not in direction of tunnel)
+				if (step == 0  &&  ((i&1)==0)  &&  s  &&  gr->ist_tunnel()) {
+					if ( ribi_t::reverse_single(ribi_type(s)) != ribi_type(testdir[i])) {
+						s = slope_t::flat;
+					}
+				}
 				// take backimage into account, take base-height of back image as corner heights
 				sint8 bb = abs(gr->back_imageid);
 				sint8 lh = 2, rh = 2; // height of start of back image
@@ -1162,7 +1158,7 @@ void grund_t::display_boden(const sint16 xpos, const sint16 ypos, const sint16 r
 				}
 				if(  way_ribi & ribi_t::north  ) {
 					const int dh = corner_nw(get_disp_way_slope()) * hgt_step;
-					add_poly_clip( xpos + raster_tile_width - 1, ypos + 3 * raster_tile_width / 4 - 1 - dh, xpos + raster_tile_width / 2 + 1, ypos + raster_tile_width / 2 - dh, ribi_t::north | non_convex CLIP_NUM_PAR );
+					add_poly_clip( xpos + raster_tile_width, ypos + 3 * raster_tile_width / 4 - dh, xpos + raster_tile_width / 2, ypos + raster_tile_width / 2 - dh, ribi_t::north | non_convex CLIP_NUM_PAR );
 				}
 				activate_ribi_clip( (way_ribi & ribi_t::northwest) | non_convex  CLIP_NUM_PAR );
 			}
@@ -1438,7 +1434,7 @@ void grund_t::display_obj_all(const sint16 xpos, const sint16 ypos, const sint16
 	}
 	if(  ribi & ribi_t::north  ) {
 		const int dh = corner_nw(slope) * hgt_step;
-		add_poly_clip( xpos + raster_tile_width - 1, ypos + 3 * raster_tile_width / 4 - 1 - dh, xpos + raster_tile_width / 2 + 1, ypos + raster_tile_width / 2 - dh, ribi_t::north | non_convex CLIP_NUM_PAR );
+		add_poly_clip( xpos + raster_tile_width, ypos + 3 * raster_tile_width / 4 - dh, xpos + raster_tile_width / 2, ypos + raster_tile_width / 2 - dh, ribi_t::north | non_convex CLIP_NUM_PAR );
 	}
 	if(  ribi & ribi_t::east  ) {
 		const int dh = corner_se(slope) * hgt_step;
@@ -1446,7 +1442,7 @@ void grund_t::display_obj_all(const sint16 xpos, const sint16 ypos, const sint16
 	}
 	if(  ribi & ribi_t::south  ) {
 		const int dh = corner_se(slope) * hgt_step;
-		add_poly_clip( xpos, ypos + 3 * raster_tile_width / 4 + 1 - dh, xpos + raster_tile_width / 2, ypos + raster_tile_width + 1 - dh, ribi_t::south|16  CLIP_NUM_PAR );
+		add_poly_clip( xpos- 1, ypos + 3 * raster_tile_width / 4  - dh, xpos + raster_tile_width / 2 - 1, ypos + raster_tile_width  - dh, ribi_t::south|16  CLIP_NUM_PAR );
 	}
 
 	// display background

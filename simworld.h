@@ -267,7 +267,7 @@ private:
 	 * Table for fast conversion from height to climate.
 	 * @author prissi
 	 */
-	uint8 height_to_climate[32];
+	uint8 height_to_climate[128];
 
 	/**
 	 * Array containing the convois.
@@ -488,6 +488,9 @@ private:
 
 	/// @note variable used in interactive()
 	uint32 sync_steps;
+
+	// The maximum sync_steps that a client can safely advance to.
+	uint32 sync_steps_barrier;
 #define LAST_CHECKLISTS_COUNT 64
 	/// @note variable used in interactive()
 	checklist_t last_checklists[LAST_CHECKLISTS_COUNT];
@@ -646,7 +649,7 @@ private:
 	/**
 	 * Restores history for older savegames.
 	 */
-	void restore_history();
+	void restore_history(bool restore_transported_only);
 
 	/**
 	 * Will create rivers.
@@ -1099,7 +1102,8 @@ public:
 		const sint16 h=height-groundwater;
 		if(h<0) {
 			return water_climate;
-		} else if(h>=32) {
+		}
+		else if(  (uint)h >= lengthof(height_to_climate)  ) {
 			return arctic_climate;
 		}
 		return (climate)height_to_climate[h];
@@ -1747,6 +1751,11 @@ public:
 	bool play_sound_area_clipped(koord k, uint16 idx) const;
 
 	void mute_sound( bool state ) { is_sound = !state; }
+
+	/* if start is true, the current map will be used as servergame
+	 * Does not announce a new map!
+	 */
+	void switch_server( bool start_server, bool port_forwarding );
 
 	/**
 	 * Saves the map to a file.

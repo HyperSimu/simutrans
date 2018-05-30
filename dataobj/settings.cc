@@ -184,8 +184,13 @@ settings_t::settings_t() :
 	 */
 	pak_diagonal_multiplier = 724;
 
-	// assume single level is enough
-	way_height_clearance = 1;
+	// read default from env_t
+	// should be set in simmain.cc (taken from pak-set simuconf.tab
+	way_height_clearance = env_t::default_settings.get_way_height_clearance();
+	if (way_height_clearance < 0  ||  way_height_clearance >2) {
+		// if outside bounds, then set to default = 1
+		way_height_clearance = 1;
+	}
 
 	strcpy( language_code_names, "en" );
 
@@ -451,8 +456,14 @@ void settings_t::rdwr(loadsave_t *file)
 
 		// climate borders
 		if(file->get_version()>=91000) {
+			if(  file->get_version()<120006  ) {
+				climate_borders[arctic_climate] -= groundwater;
+			}
 			for(  int i=0;  i<8;  i++ ) {
 				file->rdwr_short(climate_borders[i] );
+			}
+			if(  file->get_version()<120006  ) {
+				climate_borders[arctic_climate] += groundwater;
 			}
 			file->rdwr_short(winter_snowline );
 		}
@@ -896,6 +907,7 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	env_t::reload_and_save_on_quit = contents.get_int("reload_and_save_on_quit", env_t::reload_and_save_on_quit );
 
 	env_t::server_announce = contents.get_int("announce_server", env_t::server_announce );
+	env_t::server_announce = contents.get_int("server_port", env_t::server_port );
 	env_t::server_announce = contents.get_int("server_announce", env_t::server_announce );
 	env_t::server_announce_interval = contents.get_int("server_announce_intervall", env_t::server_announce_interval );
 	env_t::server_announce_interval = contents.get_int("server_announce_interval", env_t::server_announce_interval );

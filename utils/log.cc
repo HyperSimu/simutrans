@@ -22,9 +22,11 @@
 
 #ifdef MAKEOBJ
 //debuglevel is global variable
+#define dr_fopen fopen
 #else
 #ifdef NETTOOL
 #define debuglevel (0)
+#define dr_fopen fopen
 
 #else
 #define debuglevel (env_t::verbose_debug)
@@ -82,7 +84,7 @@ void log_t::important(const char* format, ...)
  */
 void log_t::debug(const char *who, const char *format, ...)
 {
-	if(log_debug  &&  debuglevel==4) {
+	if(log_debug  &&  debuglevel>=4) {
 		va_list argptr;
 		va_start(argptr, format);
 
@@ -125,7 +127,7 @@ void log_t::debug(const char *who, const char *format, ...)
  */
 void log_t::message(const char *who, const char *format, ...)
 {
-	if(debuglevel>2) {
+	if(debuglevel>=3) {
 		va_list argptr;
 		va_start(argptr, format);
 
@@ -168,7 +170,7 @@ void log_t::message(const char *who, const char *format, ...)
  */
 void log_t::warning(const char *who, const char *format, ...)
 {
-	if(debuglevel>1) {
+	if(debuglevel>=2) {
 		va_list argptr;
 		va_start(argptr, format);
 
@@ -211,7 +213,7 @@ void log_t::warning(const char *who, const char *format, ...)
  */
 void log_t::error(const char *who, const char *format, ...)
 {
-	if(debuglevel>0) {
+	if(debuglevel>=1) {
 		va_list argptr;
 		va_start(argptr, format);
 
@@ -350,7 +352,7 @@ void log_t::fatal(const char *who, const char *format, ...)
 
 void log_t::vmessage(const char *what, const char *who, const char *format, va_list args )
 {
-	if(debuglevel>0) {
+	if(debuglevel>=1) {
 		va_list args2;
 #ifdef __va_copy
 		__va_copy(args2, args);
@@ -389,14 +391,17 @@ log_t::log_t( const char *logfilename, bool force_flush, bool log_debug, bool lo
 	if(logfilename == NULL) {
 		log = NULL;                       /* not a log */
 		tee = NULL;
-	} else if(strcmp(logfilename,"stdio") == 0) {
+	}
+	else if(strcmp(logfilename,"stdio") == 0) {
 		log = stdout;
 		tee = NULL;
-	} else if(strcmp(logfilename,"stderr") == 0) {
+	}
+	else if(strcmp(logfilename,"stderr") == 0) {
 		log = stderr;
 		tee = NULL;
 #ifdef SYSLOG
-	} else if(  strcmp( logfilename, "syslog" ) == 0  ) {
+	}
+	else if(  strcmp( logfilename, "syslog" ) == 0  ) {
 		syslog = true;
 		if (  syslogtag  ) {
 			tag = syslogtag;
@@ -408,7 +413,7 @@ log_t::log_t( const char *logfilename, bool force_flush, bool log_debug, bool lo
 #endif
 	}
 	else {
-		log = fopen(logfilename,"wb");
+		log = dr_fopen(logfilename,"wb");
 
 		if(log == NULL) {
 			fprintf(stderr,"log_t::log_t: can't open file '%s' for writing\n", logfilename);

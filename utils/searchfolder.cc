@@ -2,11 +2,13 @@
 #include <string.h>
 
 #ifndef _WIN32
-#include <dirent.h>
+#	include <dirent.h>
 #else
-#define NOMINMAX
-#include <Windows.h>
-#include <io.h>
+#	ifndef NOMINMAX
+#		define NOMINMAX
+#	endif
+#	include <windows.h>
+#	include <io.h>
 #endif
 
 #include "../simdebug.h"
@@ -70,7 +72,7 @@ int searchfolder_t::search_path(const std::string &filepath, const std::string &
 
 #ifdef _WIN32
 	// since we assume hardcoded path are using / we need to correct this for windows
-	for(  int i=0;  i<path.size();  i++  ) {
+	for(  uint i=0;  i<path.size();  i++  ) {
 		if(  path[i]=='\\'  ) {
 			path[i] = '/';
 		}
@@ -128,7 +130,7 @@ int searchfolder_t::search_path(const std::string &filepath, const std::string &
 		WideCharToMultiByte( CP_UTF8, 0, entry.name, -1, entry_name, entry_name_size, NULL, NULL );
 
 		size_t entry_len = strlen(entry_name);
-		if(  stricmp( entry_name + entry_len - lookfor.length(), lookfor.c_str() ) == 0  ) {
+		if(  lookfor.empty()  ||  stricmp( entry_name + entry_len - lookfor.length(), lookfor.c_str() ) == 0  ) {
 			if(only_directories) {
 				if ((entry.attrib & _A_SUBDIR)==0) {
 					delete[] entry_name;
@@ -167,7 +169,7 @@ std::string searchfolder_t::complete(const std::string &filepath_raw, const std:
 {
 	std::string filepath(filepath_raw);
 	// since we assume hardcoded path are using / we need to correct this for windows
-	for(  int i=0;  i<filepath.size();  i++  ) {
+	for(  uint i=0;  i<filepath.size();  i++  ) {
 		if(  filepath[i]=='\\'  ) {
 			filepath[i] = '/';
 		}

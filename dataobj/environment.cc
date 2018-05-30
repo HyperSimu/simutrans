@@ -1,6 +1,7 @@
 #include <string>
 #include "environment.h"
 #include "loadsave.h"
+#include "../pathes.h"
 #include "../simversion.h"
 #include "../simconst.h"
 #include "../simtypes.h"
@@ -31,8 +32,10 @@ uint8 env_t::just_in_time = 1;
 
 // Disable announce by default
 uint32 env_t::server_announce = 0;
+bool env_t::easy_server = false;
 // Minimum is every 60 seconds, default is every 15 minutes (900 seconds), maximum is 86400 (1 day)
 sint32 env_t::server_announce_interval = 900;
+int env_t::server_port = 13353;
 std::string env_t::server_dns;
 std::string env_t::server_name;
 std::string env_t::server_comments;
@@ -46,16 +49,16 @@ bool env_t::server_save_game_on_quit = false;
 bool env_t::reload_and_save_on_quit = true;
 
 sint32 env_t::server_frames_ahead = 4;
-sint32 env_t::additional_client_frames_behind = 0;
+sint32 env_t::additional_client_frames_behind = 4;
 sint32 env_t::network_frames_per_step = 4;
-uint32 env_t::server_sync_steps_between_checks = 256;
+uint32 env_t::server_sync_steps_between_checks = 24;
 bool env_t::pause_server_no_clients = false;
 
 std::string env_t::nickname = "";
 
-// this is explicitly and interactively set by user => we do not touch it in init
+// this is explicitly and interactively set by user => we do not touch it on init
 const char *env_t::language_iso = "en";
-sint16 env_t::scroll_multi = 1;
+sint16 env_t::scroll_multi = -1; // start with same scrool as mouse as nowadays standard
 sint16 env_t::global_volume = 127;
 sint16 env_t::midi_volume = 127;
 bool env_t::mute_sound = false;
@@ -130,6 +133,9 @@ sint8 env_t::daynight_level;
 bool env_t::left_to_right_graphs;
 uint32 env_t::tooltip_delay;
 uint32 env_t::tooltip_duration;
+
+std::string env_t::fontname = FONT_PATH_X "prop.fnt";
+uint8 env_t::fontsize = 11;
 
 uint32 env_t::front_window_text_color_rgb;
 PIXVAL env_t::front_window_text_color;
@@ -449,8 +455,15 @@ void env_t::rdwr(loadsave_t *file)
 		file->rdwr_long( default_window_title_color_rgb );
 		file->rdwr_long( front_window_text_color_rgb );
 		file->rdwr_long( bottom_window_text_color_rgb );
-
 		file->rdwr_byte( bottom_window_darkness );
+	}
+	if(  file->get_version()>=120006  ) {
+		plainstring str = fontname.c_str();
+		file->rdwr_str( str );
+		if (file->is_loading()) {
+			fontname = str ? str.c_str() : "";
+		}
+		file->rdwr_byte( fontsize );
 	}
 	// server settings are not saved, since they are server specific and could be different on different servers on the save computers
 }

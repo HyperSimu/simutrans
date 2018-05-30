@@ -86,7 +86,9 @@ const uint8 money_frame_t::cost_type[3*MAX_PLAYER_COST_BUTTON] =
 };
 
 
-/* order has to be same as in enum transport_type in file simtypes.h */
+/* order has to be same as in enum transport_type in file finance.h */
+/* Also these have to match the strings in simline_t::linetype2name! */
+/* (and it is sad that the order between those do not match ...) */
 const char * money_frame_t::transport_type_values[TT_MAX] = {
 	"All",
 	"Truck",
@@ -128,7 +130,7 @@ sint64 money_frame_t::get_statistics_value(int tt, uint8 type, int yearmonth, bo
 void money_frame_t::update_label(gui_label_t &label, char *buf, int transport_type, uint8 type, int yearmonth, int label_type)
 {
 	sint64 value = get_statistics_value(transport_type, type, yearmonth, year_month_tabs.get_active_tab_index()==1);
-	PIXVAL color = value >= 0 ? (value > 0 ? MONEY_PLUS : color_idx_to_rgb(COL_YELLOW)) : MONEY_MINUS;
+	PIXVAL color = value >= 0 ? (value > 0 ? MONEY_PLUS : SYSCOL_TEXT_UNUSED) : MONEY_MINUS;
 
 	if (label_type == MONEY) {
 		const double cost = value / 100.0;
@@ -214,13 +216,13 @@ money_frame_t::money_frame_t(player_t *player)
 		vtmoney(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
 		money(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
 		margin(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
-		transport(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::right),
-		old_transport(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::right),
+		transport(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
+		old_transport(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
 		toll(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
 		old_toll(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
 		maintenance_label("This Month",SYSCOL_TEXT_HIGHLIGHT, gui_label_t::right),
 		maintenance_money(NULL, SYSCOL_TEXT_HIGHLIGHT, gui_label_t::money),
-		warn("", color_idx_to_rgb(COL_YELLOW), gui_label_t::left),
+		warn("", SYSCOL_TEXT_STRONG, gui_label_t::left),
 		scenario("", SYSCOL_TEXT, gui_label_t::left),
 		transport_type_option(0),
 		headquarter_view(koord3d::invalid, scr_size(120, 64))
@@ -257,13 +259,15 @@ money_frame_t::money_frame_t(player_t *player)
 	lylabel.set_width(lyl_x+25-lylabel.get_pos().x);
 
 	//transport.set_pos(scr_coord(tyl_x+19, top+0*BUTTONSPACE));
-	transport.align_to(&tylabel,ALIGN_LEFT,scr_coord(0,top));
-	transport.set_width(tylabel.get_size().w);
+	//transport.align_to(&tylabel,ALIGN_LEFT,scr_coord(0,top));
+	//transport.set_width(tylabel.get_size().w);
 
 	//old_transport.set_pos(scr_coord(lyl_x+19, top+0*BUTTONSPACE));
-	old_transport.align_to(&lylabel,ALIGN_LEFT,scr_coord(0,top));
-	old_transport.set_width(lylabel.get_size().w);
+	//old_transport.align_to(&lylabel,ALIGN_LEFT,scr_coord(0,top));
+	//old_transport.set_width(lylabel.get_size().w);
 
+	transport.set_pos(scr_coord(tyl_x,top+0*BUTTONSPACE));
+	old_transport.set_pos(scr_coord(lyl_x,top+0*BUTTONSPACE));
 	imoney.set_pos(scr_coord(tyl_x,top+1*BUTTONSPACE));
 	old_imoney.set_pos(scr_coord(lyl_x,top+1*BUTTONSPACE));
 	vrmoney.set_pos(scr_coord(tyl_x,top+2*BUTTONSPACE));
@@ -282,8 +286,8 @@ money_frame_t::money_frame_t(player_t *player)
 	old_tmoney.set_pos(scr_coord(lyl_x,top+8*BUTTONSPACE));
 
 	// right column
-	maintenance_label.set_pos(scr_coord(left+335+D_H_SPACE, top+2*BUTTONSPACE));
-	maintenance_money.set_pos(scr_coord(left+335+D_H_SPACE+maintenance_label.get_size().w, top+3*BUTTONSPACE));
+	maintenance_label.set_pos(scr_coord(left+335+120+D_H_SPACE, top+2*BUTTONSPACE));
+	maintenance_money.set_pos(scr_coord(left+335+120+D_H_SPACE, top+3*BUTTONSPACE));
 
 	tylabel2.set_pos(scr_coord(left+140+80+335-tylabel2.get_size().w,top+4*BUTTONSPACE));
 	gtmoney.set_pos(scr_coord(left+140+335+55, top+5*BUTTONSPACE));
@@ -510,7 +514,7 @@ void money_frame_t::draw(scr_coord pos, scr_size size)
 		tstrncpy(str_buf[15], translator::translate("Net wealth near zero"), lengthof(str_buf[15]) );
 	}
 	else if(  player->get_account_overdrawn()  ) {
-		warn.set_color( color_idx_to_rgb(COL_YELLOW) );
+		warn.set_color( SYSCOL_TEXT_STRONG );
 		sprintf( str_buf[15], translator::translate("On loan since %i month(s)"), player->get_account_overdrawn() );
 	}
 	else {
@@ -643,7 +647,7 @@ uint32 money_frame_t::get_rdwr_id()
 
 void money_frame_t::rdwr( loadsave_t *file )
 {
-	bool monthly = mchart.is_visible();;
+	bool monthly = mchart.is_visible();
 	file->rdwr_bool( monthly );
 
 	// button state already collected

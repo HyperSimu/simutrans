@@ -311,8 +311,8 @@ void karte_t::recalc_season_snowline(bool set_pending)
 
 	const sint16 winterline = settings.get_winter_snowline();
 	const sint16 summerline = settings.get_climate_borders()[arctic_climate] + 1;
-	snowline = summerline - (sint16)(((summerline-winterline)*factor)/100) + groundwater;
-	if(  old_snowline != snowline  && set_pending  ) {
+	snowline = summerline - (sint16)(((summerline-winterline)*factor)/100);
+	if(  old_snowline != snowline  &&  set_pending  ) {
 		pending_snowline_change++;
 	}
 }
@@ -1162,8 +1162,8 @@ DBG_DEBUG("karte_t::distribute_groundobjs_cities()","distributing groundobjs");
 						}
 						const climate_bits cl = neighbour_water ? water_climate_bit : (climate_bits)(1<<get_climate(k));
 						const groundobj_desc_t *desc = groundobj_t::random_groundobj_for_climate( cl, gr->get_grund_hang() );
+						queried = simrand(env_t::ground_object_probability*2-1);
 						if(desc) {
-							queried = simrand(env_t::ground_object_probability*2-1);
 							gr->obj_add( new groundobj_t( gr->get_pos(), desc ) );
 						}
 					}
@@ -1247,6 +1247,7 @@ void karte_t::init(settings_t* const sets, sint8 const* const h_field)
 	steps = 0;
 	network_frame_count = 0;
 	sync_steps = 0;
+	sync_steps_barrier = sync_steps;
 	map_counter = 0;
 	recalc_average_speed();	// resets timeline
 	koord::locality_factor = settings.get_locality_factor( last_year );
@@ -1636,16 +1637,16 @@ void karte_t::init_height_to_climate()
 	for( int cl=0;  cl<MAX_CLIMATES-1;  cl++ ) {
 		if(climate_border[cl]>climate_border[arctic_climate]) {
 			// unused climate
-			climate_border[cl] = 0;
+			climate_border[cl] = groundwater-1;
 		}
 	}
 
 	// now arrange the remaining ones
-	for( int h=0;  h<32;  h++  ) {
+	for( uint h=0;  h<lengthof(height_to_climate);  h++  ) {
 		sint16 current_height = 999;	      // current maximum
 		sint16 current_cl = arctic_climate;	// and the climate
 		for( int cl=0;  cl<MAX_CLIMATES;  cl++ ) {
-			if(climate_border[cl] >= h+groundwater  &&  climate_border[cl] < current_height) {
+			if(  climate_border[cl] >= (sint16)h + groundwater  &&  climate_border[cl] < current_height  ) {
 				current_height = climate_border[cl];
 				current_cl = cl;
 			}
@@ -1824,13 +1825,30 @@ void karte_t::enlarge_map(settings_t const* sets, sint8 const* const h_field)
 	}
 	else {
 		world_xy_loop(&karte_t::create_grounds_loop, 0);
-		ls.set_progress(3);
+		ls.set_progress(10);
+	}
+
+	// update height bounds
+	for(  sint16 iy = 0;  iy < new_size_y;  iy++  ) {
+		for(  sint16 ix = (iy >= old_y) ? 0 : max( old_x, 0 );  ix < new_size_x;  ix++  ) {
+			sint8 hgt = lookup_kartenboden_nocheck(ix, iy)->get_hoehe();
+			if (hgt < min_height) {
+				min_height = hgt;
+			}
+			if (hgt > max_height) {
+				max_height = hgt;
+			}
+		}
+	}
+
+	if (  old_x == 0  &&  old_y == 0  ) {
+		ls.set_progress(11);
 	}
 
 	// smooth the new part, reassign slopes on new part
 	cleanup_karte( old_x, old_y );
 	if (  old_x == 0  &&  old_y == 0  ) {
-		ls.set_progress(4);
+		ls.set_progress(12);
 	}
 
 	if(  sets->get_lake()  ) {
@@ -1913,13 +1931,6 @@ void karte_t::enlarge_map(settings_t const* sets, sint8 const* const h_field)
 			for(  sint16 x=max(0,old_x-cov);  x<old_x;  x++  ) {
 				const planquadrat_t* pl = access_nocheck(x,y);
 				for(  uint8 i=0;  i < pl->get_boden_count();  i++  ) {
-					// update limits
-					if(  min_height > pl->get_boden_bei(i)->get_hoehe()  ) {
-						min_height = pl->get_boden_bei(i)->get_hoehe();
-					}
-					else if(  max_height < pl->get_boden_bei(i)->get_hoehe()  ) {
-						max_height = pl->get_boden_bei(i)->get_hoehe();
-					}
 					// update halt
 					halthandle_t h = pl->get_boden_bei(i)->get_halt();
 					if(  h.is_bound()  ) {
@@ -1938,13 +1949,6 @@ void karte_t::enlarge_map(settings_t const* sets, sint8 const* const h_field)
 			for(  sint16 x=0;  x<old_x;  x++  ) {
 				const planquadrat_t* pl = access_nocheck(x,y);
 				for(  uint8 i=0;  i < pl->get_boden_count();  i++  ) {
-					// update limits
-					if(  min_height > pl->get_boden_bei(i)->get_hoehe()  ) {
-						min_height = pl->get_boden_bei(i)->get_hoehe();
-					}
-					else if(  max_height < pl->get_boden_bei(i)->get_hoehe()  ) {
-						max_height = pl->get_boden_bei(i)->get_hoehe();
-					}
 					// update halt
 					halthandle_t h = pl->get_boden_bei(i)->get_halt();
 					if(  h.is_bound()  ) {
@@ -2001,6 +2005,7 @@ karte_t::karte_t() :
 	idle_time = 0;
 	network_frame_count = 0;
 	sync_steps = 0;
+	sync_steps_barrier = sync_steps;
 
 	for(  uint i=0;  i<MAX_PLAYER_COUNT;  i++  ) {
 		selected_tool[i] = tool_t::general_tool[TOOL_QUERY];
@@ -4138,8 +4143,32 @@ void karte_t::step()
 
 
 // recalculates world statistics for older versions
-void karte_t::restore_history()
+void karte_t::restore_history(bool restore_transported_only)
 {
+	// update total transported, including passenger and mail
+	for(  int m=min(MAX_WORLD_HISTORY_MONTHS,MAX_PLAYER_HISTORY_MONTHS)-1;  m>0;  m--  ) {
+		sint64 transported = 0;
+		for(  uint i=0;  i<MAX_PLAYER_COUNT;  i++ ) {
+			if(  players[i]!=NULL  ) {
+				players[i]->get_finance()->calc_finance_history();
+				transported += players[i]->get_finance()->get_history_veh_month( TT_ALL, m, ATV_TRANSPORTED );
+			}
+		}
+		finance_history_month[m][WORLD_TRANSPORTED_GOODS] = max(transported, finance_history_month[m][WORLD_TRANSPORTED_GOODS]);
+	}
+	for(  int y=min(MAX_WORLD_HISTORY_YEARS,MAX_CITY_HISTORY_YEARS)-1;  y>0;  y--  ) {
+		sint64 transported_year = 0;
+		for(  uint i=0;  i<MAX_PLAYER_COUNT;  i++ ) {
+			if(  players[i]  ) {
+				transported_year += players[i]->get_finance()->get_history_veh_year( TT_ALL, y, ATV_TRANSPORTED );
+			}
+		}
+		finance_history_year[y][WORLD_TRANSPORTED_GOODS] = max(transported_year, finance_history_year[y][WORLD_TRANSPORTED_GOODS]);
+	}
+	if (restore_transported_only) {
+		return;
+	}
+
 	last_month_bev = -1;
 	for(  int m=12-1;  m>0;  m--  ) {
 		// now step all towns (to generate passengers)
@@ -4153,7 +4182,7 @@ void karte_t::restore_history()
 			total_pas      += i->get_finance_history_month(m, HIST_PAS_GENERATED);
 			trans_mail     += i->get_finance_history_month(m, HIST_MAIL_TRANSPORTED);
 			total_mail     += i->get_finance_history_month(m, HIST_MAIL_GENERATED);
-			supplied_goods += i->get_finance_history_month(m, HIST_GOODS_RECIEVED);
+			supplied_goods += i->get_finance_history_month(m, HIST_GOODS_RECEIVED);
 			total_goods    += i->get_finance_history_month(m, HIST_GOODS_NEEDED);
 		}
 
@@ -4173,17 +4202,6 @@ void karte_t::restore_history()
 		finance_history_month[m][WORLD_GOODS_RATIO] = (10000*supplied_goods)/total_goods;
 	}
 
-	// update total transported, including passenger and mail
-	for(  int m=min(MAX_WORLD_HISTORY_MONTHS,MAX_PLAYER_HISTORY_MONTHS)-1;  m>0;  m--  ) {
-		sint64 transported = 0;
-		for(  uint i=0;  i<MAX_PLAYER_COUNT;  i++ ) {
-			if(  players[i]!=NULL  ) {
-				transported += players[i]->get_finance()->get_history_veh_month( TT_ALL, m, ATV_TRANSPORTED );
-			}
-		}
-		finance_history_month[m][WORLD_TRANSPORTED_GOODS] = transported;
-	}
-
 	sint64 bev_last_year = -1;
 	for(  int y=min(MAX_WORLD_HISTORY_YEARS,MAX_CITY_HISTORY_YEARS)-1;  y>0;  y--  ) {
 		// now step all towns (to generate passengers)
@@ -4197,7 +4215,7 @@ void karte_t::restore_history()
 			total_pas_year      += i->get_finance_history_year(y, HIST_PAS_GENERATED);
 			trans_mail_year     += i->get_finance_history_year(y, HIST_MAIL_TRANSPORTED);
 			total_mail_year     += i->get_finance_history_year(y, HIST_MAIL_GENERATED);
-			supplied_goods_year += i->get_finance_history_year(y, HIST_GOODS_RECIEVED);
+			supplied_goods_year += i->get_finance_history_year(y, HIST_GOODS_RECEIVED);
 			total_goods_year    += i->get_finance_history_year(y, HIST_GOODS_NEEDED);
 		}
 
@@ -4217,15 +4235,6 @@ void karte_t::restore_history()
 		finance_history_year[y][WORLD_GOODS_RATIO] = (10000*supplied_goods_year)/total_goods_year;
 	}
 
-	for(  int y=min(MAX_WORLD_HISTORY_YEARS,MAX_CITY_HISTORY_YEARS)-1;  y>0;  y--  ) {
-		sint64 transported_year = 0;
-		for(  uint i=0;  i<MAX_PLAYER_COUNT;  i++ ) {
-			if(  players[i]  ) {
-				transported_year += players[i]->get_finance()->get_history_veh_year( TT_ALL, y, ATV_TRANSPORTED );
-			}
-		}
-		finance_history_year[y][WORLD_TRANSPORTED_GOODS] = transported_year;
-	}
 	// fix current month/year
 	update_history();
 }
@@ -4250,13 +4259,13 @@ void karte_t::update_history()
 		total_pas           += i->get_finance_history_month(0, HIST_PAS_GENERATED);
 		trans_mail          += i->get_finance_history_month(0, HIST_MAIL_TRANSPORTED);
 		total_mail          += i->get_finance_history_month(0, HIST_MAIL_GENERATED);
-		supplied_goods      += i->get_finance_history_month(0, HIST_GOODS_RECIEVED);
+		supplied_goods      += i->get_finance_history_month(0, HIST_GOODS_RECEIVED);
 		total_goods         += i->get_finance_history_month(0, HIST_GOODS_NEEDED);
 		trans_pas_year      += i->get_finance_history_year( 0, HIST_PAS_TRANSPORTED);
 		total_pas_year      += i->get_finance_history_year( 0, HIST_PAS_GENERATED);
 		trans_mail_year     += i->get_finance_history_year( 0, HIST_MAIL_TRANSPORTED);
 		total_mail_year     += i->get_finance_history_year( 0, HIST_MAIL_GENERATED);
-		supplied_goods_year += i->get_finance_history_year( 0, HIST_GOODS_RECIEVED);
+		supplied_goods_year += i->get_finance_history_year( 0, HIST_GOODS_RECEIVED);
 		total_goods_year    += i->get_finance_history_year( 0, HIST_GOODS_NEEDED);
 	}
 
@@ -4287,6 +4296,7 @@ void karte_t::update_history()
 	sint64 transported_year = 0;
 	for(  uint i=0;  i<MAX_PLAYER_COUNT;  i++ ) {
 		if(  players[i]!=NULL  ) {
+			players[i]->get_finance()->calc_finance_history();
 			transported += players[i]->get_finance()->get_history_veh_month( TT_ALL, 0, ATV_TRANSPORTED_GOOD );
 			transported_year += players[i]->get_finance()->get_history_veh_year( TT_ALL, 0, ATV_TRANSPORTED_GOOD );
 		}
@@ -4820,6 +4830,75 @@ void karte_t::add_missing_paks( const char *name, missing_level_t level )
 }
 
 
+
+void karte_t::switch_server( bool start_server, bool port_forwarding )
+{
+	if(  !start_server  ) {
+		// end current server session
+
+		if(  env_t::server  ) {
+			// take down server
+			announce_server(2);
+			remove_port_forwarding( env_t::server );
+		}
+		network_core_shutdown();
+		env_t::easy_server = 0;
+		
+		clear_random_mode( INTERACTIVE_RANDOM );
+		step_mode = NORMAL;
+		reset_timer();
+		clear_command_queue();
+		last_active_player_nr = active_player_nr;
+
+		if(  port_forwarding  &&  env_t::fps<=15  ) {
+			env_t::fps = 25;
+		}
+	}
+	else {
+
+		// convert current game into server game
+		if(  env_t::server  ) {
+			// kick all clients out
+			network_reset_server();
+		}
+		else {
+			// now start a server with defaults
+			env_t::networkmode = network_init_server( env_t::server_port );
+			if(  env_t::networkmode  ) {
+
+				// query IP and try to open ports on router
+				char IP[256];
+				if(  port_forwarding  &&  prepare_for_server( IP, env_t::server_port )  ) {
+					// we have forwarded a port in router, so we can continue
+					env_t::server_dns = IP;
+					if(  env_t::server_name.empty()  ) {
+						env_t::server_name = std::string("Server at ")+IP;
+					}
+					env_t::server_announce = 1;
+					env_t::easy_server = 1;
+					if(  env_t::fps>15  ) {
+						env_t::fps = 15;
+					}
+				}
+
+				reset_timer();
+				clear_command_queue();
+
+				// meaningless to use a locked map; there are passwords now
+				settings.set_allow_player_change(true);
+				// language of map becomes server language
+				settings.set_name_language_iso(translator::get_lang()->iso_base);
+
+				nwc_auth_player_t::init_player_lock_server(this);
+
+				last_active_player_nr = active_player_nr;
+			}
+		}
+	}
+}
+
+
+
 // just the preliminaries, opens the file, checks the versions ...
 bool karte_t::load(const char *filename)
 {
@@ -4840,6 +4919,7 @@ bool karte_t::load(const char *filename)
 	const koord oldpos = settings.get_filename()[0]>0  &&  strncmp(filename,settings.get_filename(),strlen(settings.get_filename()))==0 ? viewport->get_world_position() : koord::invalid;
 
 	if(  strstart(filename, "net:")  ) {
+
 		// probably finish network mode?
 		if(  env_t::networkmode  ) {
 			network_core_shutdown();
@@ -4864,13 +4944,12 @@ bool karte_t::load(const char *filename)
 	else {
 		// probably finish network mode first?
 		if(  env_t::networkmode  ) {
-			if (  env_t::server  ) {
+			if(  env_t::server  ) {
 				char fn[256];
 				sprintf( fn, "server%d-network.sve", env_t::server );
 				if(  strcmp(filename, fn) != 0  ) {
 					// stay in networkmode, but disconnect clients
 					dbg->warning("karte_t::load","disconnecting all clients");
-					network_reset_server();
 				}
 				else {
 					// read password hashes from separate file
@@ -5209,6 +5288,7 @@ DBG_DEBUG("karte_t::load", "init felder ok");
 	steps = 0;
 	network_frame_count = 0;
 	sync_steps = 0;
+	sync_steps_barrier = sync_steps;
 	step_mode = PAUSE_FLAG;
 
 DBG_MESSAGE("karte_t::load()","savegame loading at tick count %i",ticks);
@@ -5575,10 +5655,9 @@ DBG_MESSAGE("karte_t::load()", "%d factories loaded", fab_list.get_count());
 
 	// load history/create world history
 	if(file->get_version()<99018) {
-		restore_history();
+		restore_history(false);
 	}
 	else {
-		// most recent savegame version is 99018
 		for (int year = 0;  year</*MAX_WORLD_HISTORY_YEARS*/12;  year++) {
 			for (int cost_type = 0; cost_type</*MAX_WORLD_COST*/12; cost_type++) {
 				file->rdwr_longlong(finance_history_year[year][cost_type]);
@@ -5590,6 +5669,10 @@ DBG_MESSAGE("karte_t::load()", "%d factories loaded", fab_list.get_count());
 			}
 		}
 		last_month_bev = finance_history_month[1][WORLD_CITICENS];
+
+		if (112005 <= file->get_version() &&  file->get_version() <= 120005) {
+			restore_history(true);
+		}
 	}
 
 	// finally: do we run a scenario?
@@ -5609,7 +5692,7 @@ DBG_MESSAGE("karte_t::load()", "%d factories loaded", fab_list.get_count());
 
 	// initialize lock info for local server player
 	// if call from sync command, lock info will be corrected there
-	if(  env_t::server) {
+	if(  env_t::server  ) {
 		nwc_auth_player_t::init_player_lock_server(this);
 	}
 
@@ -6234,6 +6317,7 @@ void karte_t::network_game_set_pause(bool pause_, uint32 syncsteps_)
 	if (env_t::networkmode) {
 		time_multiplier = 16;	// reset to normal speed
 		sync_steps = syncsteps_;
+		sync_steps_barrier = sync_steps;
 		steps = sync_steps / settings.get_frames_per_step();
 		network_frame_count = sync_steps % settings.get_frames_per_step();
 		dbg->warning("karte_t::network_game_set_pause", "steps=%d sync_steps=%d pause=%d", steps, sync_steps, pause_);
@@ -6346,15 +6430,16 @@ void karte_t::process_network_commands(sint32 *ms_difference)
 	// process the received command
 	while(  nwc  ) {
 		// check timing
-		if(  nwc->get_id() == NWC_CHECK  ) {
-			// checking for synchronisation
-			nwc_check_t* nwcheck = (nwc_check_t*)nwc;
+		uint16 const nwcid = nwc->get_id();
+		if(  nwcid == NWC_CHECK  ||  nwcid == NWC_STEP  ) {
+			// pull out server sync step
+			const uint32 server_sync_step = nwcid == NWC_CHECK ? dynamic_cast<nwc_check_t *>(nwc)->server_sync_step : dynamic_cast<nwc_step_t *>(nwc)->get_sync_step();
 
 			// are we on time?
 			*ms_difference = 0;
 			const uint32 timems = dr_time();
 			const sint32 time_to_next = (sint32)next_step_time - (sint32)timems; // +'ve - still waiting for next,  -'ve - lagging
-			const sint64 frame_timediff = ((sint64)nwcheck->server_sync_step - sync_steps - settings.get_server_frames_ahead() - env_t::additional_client_frames_behind) * fix_ratio_frame_time; // +'ve - server is ahead,  -'ve - client is ahead
+			const sint64 frame_timediff = ((sint64)server_sync_step - sync_steps - settings.get_server_frames_ahead() - env_t::additional_client_frames_behind) * fix_ratio_frame_time; // +'ve - server is ahead,  -'ve - client is ahead
 			const sint64 timediff = time_to_next + frame_timediff;
 			dbg->warning("NWC_CHECK", "time difference to server %lli", frame_timediff );
 
@@ -6368,7 +6453,7 @@ void karte_t::process_network_commands(sint32 *ms_difference)
 					// already waiting longer than how far we're ahead, so set wait time shorter to the time ahead.
 					next_step_time = (sint64)timems - frame_timediff;
 			}
-			else {
+			else if(  nwcid == NWC_CHECK  ) {
 					// gentle slowing down
 					*ms_difference = timediff;
 				}
@@ -6380,15 +6465,19 @@ void karte_t::process_network_commands(sint32 *ms_difference)
 					next_step_time = timems;
 					*ms_difference = frame_timediff;
 				}
-				else {
+				else if(  nwcid == NWC_CHECK  ) {
 					// gentle catching up
 					*ms_difference = timediff;
 				}
 			}
+
+			if(  sync_steps_barrier < server_sync_step  ) {
+				sync_steps_barrier = server_sync_step;
+			}
 		}
 
 		// check random number generator states
-		if(  env_t::server  &&  nwc->get_id()==NWC_TOOL  ) {
+		if(  env_t::server  &&  nwcid  ==  NWC_TOOL  ) {
 			nwc_tool_t *nwt = dynamic_cast<nwc_tool_t *>(nwc);
 			if(  nwt->is_from_initiator()  ) {
 				if(  nwt->last_sync_step>sync_steps  ) {
@@ -6525,6 +6614,7 @@ bool karte_t::interactive(uint32 quit_month)
 
 	finish_loop = false;
 	sync_steps = 0;
+	sync_steps_barrier = sync_steps;
 
 	network_frame_count = 0;
 	vector_tpl<uint16>hashes_ok;	// bit set: this client can do something with this player
@@ -6612,6 +6702,10 @@ bool karte_t::interactive(uint32 quit_month)
 				sync_step( 0, false, true );
 				idle_time = 100;
 			}
+			else if(  env_t::networkmode  &&  !env_t::server  &&  sync_steps >= sync_steps_barrier  ) {
+				sync_step( 0, false, true );
+				next_step_time = time + fix_ratio_frame_time;
+			}
 			else {
 				if(  step_mode==FAST_FORWARD  ) {
 					sync_step( 100, true, false );
@@ -6657,6 +6751,11 @@ bool karte_t::interactive(uint32 quit_month)
 
 							nwc_check_t* nwc = new nwc_check_t(sync_steps + 1, map_counter, LCHKLST(sync_steps), sync_steps);
 							network_send_all(nwc, true);
+						}
+						else {
+							// broadcast sync_step
+							nwc_step_t* nwcstep = new nwc_step_t(sync_steps, map_counter);
+							network_send_all(nwcstep, true);
 						}
 					}
 #if DEBUG>4
@@ -6718,8 +6817,13 @@ void karte_t::announce_server(int status)
 	// st=on&dns=server.com&port=13353&rev=1234&pak=pak128&name=some+name&time=3,1923&size=256,256&active=[0-16]&locked=[0-16]&clients=[0-16]&towns=15&citizens=3245&factories=33&convoys=56&stops=17
 	// (This is the data part of an HTTP POST)
 	if(  env_t::server_announce  ) {
+		// in easy_server mode, we assume the IP may change frequently and thus query it before each announce
 		cbuffer_t buf;
+		if(  env_t::easy_server  &&  status<2  &&  get_external_IP(buf)  ) {
+			env_t::server_dns = (const char *)buf;
+		}
 		// Always send dns and port as these are used as the unique identifier for the server
+		buf.clear();
 		buf.append( "&dns=" );
 		encode_URI( buf, env_t::server_dns.c_str() );
 		buf.printf( "&port=%u", env_t::server );

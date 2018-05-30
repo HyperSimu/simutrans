@@ -17,6 +17,7 @@
 #include "../../obj/label.h"
 #include "../../obj/roadsign.h"
 #include "../../obj/signal.h"
+#include "../../player/simplay.h"
 
 // for depot tools
 #include "../../simconvoi.h"
@@ -294,6 +295,12 @@ const char* label_get_text(label_t* l)
 	return NULL;
 }
 
+// roadsign
+bool roadsign_can_pass(const roadsign_t* rs, player_t* player)
+{
+	return player  &&  rs->get_desc()->is_private_way()  ?  (rs->get_player_mask() & (1<<player->get_player_nr()))!=0 : true;
+}
+
 // depot
 call_tool_init depot_append_vehicle(depot_t *depot, player_t *player, convoihandle_t cnv, const vehicle_desc_t *desc)
 {
@@ -346,7 +353,7 @@ void export_map_objects(HSQUIRRELVM vm)
 	 * Class to access objects on the map
 	 * These classes cannot modify anything.
 	 */
-	begin_class(vm, "map_object_x", "extend_get,coord3d");
+	begin_class(vm, "map_object_x", "extend_get,coord3d,ingame_object");
 	uint8 objtype = bind_code<obj_t>::objtype;
 	sq_settypetag(vm, -1, obj_t_tag + objtype);
 	/**
@@ -359,6 +366,10 @@ void export_map_objects(HSQUIRRELVM vm)
 	 * @typemask void(integer,integer,integer,map_objects)
 	 */
 	register_function(vm, exp_obj_pos_constructor, "constructor", 5, "xiiii");
+	/**
+	 * @returns if object is still valid.
+	 */
+	export_is_valid<obj_t*>(vm); //register_function("is_valid")
 	/**
 	 * @returns owner of the object.
 	 */
@@ -569,5 +580,12 @@ void export_map_objects(HSQUIRRELVM vm)
 	 * @returns object descriptor.
 	 */
 	register_method(vm, &roadsign_t::get_desc, "get_desc");
+
+	/**
+	 * Test whether @p player 's vehicles can pass private-way sign.
+	 * Returns true if this is not a private-way sign.
+	 * @param player
+	 */
+	register_method(vm, &roadsign_can_pass, "can_pass", true);
 	end_class(vm);
 }
