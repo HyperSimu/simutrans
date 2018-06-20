@@ -20,6 +20,7 @@ class karte_ptr_t;
 class player_t;
 class grund_t;
 class tool_selector_t;
+class strasse_t;
 
 
 /**
@@ -126,6 +127,12 @@ private:
 	const tunnel_desc_t * tunnel_desc;
 
 	/**
+	 * Only for road
+	 * @author THLeaderH
+	 */
+	overtaking_mode_t overtaking_mode;
+
+	/**
 	 * If a way is built on top of another way, should the type
 	 * of the former way be kept or replaced (true == keep)
 	 * @author Hj. Malthaner
@@ -141,14 +148,15 @@ private:
 	koord3d_vector_t route;
 	// index in route with terraformed tiles
 	vector_tpl<uint32> terraform_index;
+	bool route_reversed;
 
 public:
 	/* This is the core routine for the way search
-	* it will check
-	* A) allowed step
-	* B) if allowed, calculate the cost for the step from from to to
-	* @author prissi
-	*/
+	 * it will check
+	 * A) allowed step
+	 * B) if allowed, calculate the cost for the step from from to to
+	 * @author prissi
+	 */
 	bool is_allowed_step(const grund_t *from, const grund_t *to, sint32 *costs, bool is_upperlayer = false ) const;
 
 private:
@@ -179,6 +187,8 @@ private:
 
 	uint32 calc_distance( const koord3d &pos, const koord3d &mini, const koord3d &maxi );
 
+	void update_ribi_mask_oneway(strasse_t* str, uint32 i);
+
 public:
 	const koord3d_vector_t &get_route() const { return route; }
 
@@ -207,6 +217,8 @@ public:
 	void init_builder(bautyp_t wt, const way_desc_t * desc, const tunnel_desc_t *tunnel_desc=NULL, const bridge_desc_t *bridge_desc=NULL);
 
 	void set_maximum(uint32 n) { maximum = n; }
+
+	void set_overtaking_mode(overtaking_mode_t o) { overtaking_mode = o; }
 
 	way_builder_t(player_t *player_);
 

@@ -53,6 +53,8 @@
 #include "gui/player_frame_t.h"
 #include "gui/schedule_list.h"
 #include "gui/signal_spacing.h"
+#include "gui/onewaysign_info.h"
+#include "gui/overtaking_mode.h"
 #include "gui/city_info.h"
 #include "gui/trafficlight_info.h"
 #include "gui/privatesign_info.h"
@@ -2287,7 +2289,7 @@ bool tool_build_way_t::is_selected() const
 	return (selected  &&  selected->get_desc(welt->get_timeline_year_month(),false) == get_desc(welt->get_timeline_year_month(),false));
 }
 
-bool tool_build_way_t::init( player_t *player )
+bool tool_build_way_t::init( player_t *player, bool called_from_move )
 {
 	two_click_tool_t::init( player );
 	if( ok_sound == NO_SOUND ) {
@@ -2303,7 +2305,31 @@ bool tool_build_way_t::init( player_t *player )
 		// non available way => fail
 		return false;
 	}
+
+	if (  !called_from_move  &&  is_ctrl_pressed()  &&  can_use_gui()  &&  desc->get_waytype()==road_wt  ) {
+		create_win(new overtaking_mode_frame_t(player, this), w_info, (ptrdiff_t)this);
+	}
 	return desc!=NULL;
+}
+
+bool tool_build_way_t::exit( player_t *player )
+{
+	destroy_win((ptrdiff_t)this);
+	return two_click_tool_t::exit(player);
+}
+
+void tool_build_way_t::draw_after(scr_coord k, bool dirty) const
+{
+	if(  desc  &&  desc->get_waytype()==road_wt  ) {
+		if(  icon!=IMG_EMPTY  &&  is_selected()  ) {
+			display_img_blend( icon, k.x, k.y, TRANSPARENT50_FLAG|OUTLINE_FLAG|color_idx_to_rgb(COL_BLACK), false, dirty );
+			char level_str[16];
+			tool_build_way_t::set_mode_str(level_str, overtaking_mode);
+			display_proportional_rgb( k.x+4, k.y+4, level_str, ALIGN_LEFT, color_idx_to_rgb(COL_YELLOW), true );
+		}
+	} else {
+		two_click_tool_t::draw_after(k,dirty);
+	}
 }
 
 waytype_t tool_build_way_t::get_waytype() const
@@ -2420,10 +2446,26 @@ void tool_build_way_t::calc_route( way_builder_t &bauigel, const koord3d &start,
 	DBG_MESSAGE("tool_build_way_t()", "builder found route with %d squares length.", bauigel.get_count());
 }
 
+tool_build_way_t* get_build_way_tool_from_toolbar(const way_desc_t* desc) {
+	FOR(vector_tpl<const way_desc_t *>, const& cand, way_builder_t::get_way_list(desc->get_waytype(), desc->get_styp())) {
+		if(  cand==desc  &&  cand->get_builder()  ) {
+			return dynamic_cast<tool_build_way_t*> (cand->get_builder());
+		}
+	}
+	return NULL;
+}
+
 const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, const koord3d &end )
 {
 	way_builder_t bauigel(player);
 	calc_route( bauigel, start, end );
+	overtaking_mode_t mode = overtaking_mode;
+	tool_build_way_t* toolbar_tool;
+	if(  look_toolbar  &&  (toolbar_tool=get_build_way_tool_from_toolbar(desc))!=NULL  ) {
+		// look toolbar variable indicates this tool is called from a shortcut key. When a tool is called from a shortcut key, we have to use overtaking_mode of the tool in a toolbar.
+		mode = toolbar_tool->get_overtaking_mode();
+	}
+	bauigel.set_overtaking_mode(mode);
 	if(  bauigel.get_route().get_count()>1  ) {
 		welt->mute_sound(true);
 		bauigel.build();
@@ -2432,6 +2474,21 @@ const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, c
 		return NULL;
 	}
 	return "";
+}
+
+void tool_build_way_t::rdwr_custom_data(memory_rw_t *packet)
+{
+	two_click_tool_t::rdwr_custom_data(packet);
+	sint8 i = overtaking_mode;
+	// If this tool is called from a shortcut key, overtaking_mode of the tool in a toolbar has to be used.
+	if(  packet->is_saving()  &&  look_toolbar  ) {
+		tool_build_way_t* toolbar_tool = get_build_way_tool_from_toolbar(desc);
+		if(  toolbar_tool  ) {
+			i = toolbar_tool->get_overtaking_mode();
+		}
+	}
+	packet->rdwr_byte(i);
+	overtaking_mode = (overtaking_mode_t)i;
 }
 
 void tool_build_way_t::mark_tiles(  player_t *player, const koord3d &start, const koord3d &end )
@@ -2478,6 +2535,32 @@ void tool_build_way_t::mark_tiles(  player_t *player, const koord3d &start, cons
 	}
 }
 
+void tool_build_way_t::set_mode_str(char* str, overtaking_mode_t overtaking_mode) {
+	assert(str);
+	switch (overtaking_mode) {
+		case halt_mode:
+			sprintf(str, "H");
+		break;
+		case oneway_mode:
+			sprintf(str, "O");
+		break;
+		case twoway_mode:
+			sprintf(str, "T");
+		break;
+		case loading_only_mode:
+			sprintf(str, "L");
+		break;
+		case prohibited_mode:
+			sprintf(str, "P");
+		break;
+		case inverted_mode:
+			sprintf(str, "I");
+		break;
+		default:
+			sprintf(str, "X");
+		break;
+	}
+}
 
 /* city road construction */
 const way_desc_t *tool_build_cityroad::get_desc(uint16,bool) const
@@ -2489,6 +2572,7 @@ const char *tool_build_cityroad::do_work( player_t *player, const koord3d &start
 {
 	way_builder_t bauigel(player);
 	bauigel.set_build_sidewalk(true);
+	bauigel.set_overtaking_mode(overtaking_mode);
 	calc_route( bauigel, start, end );
 	if(  bauigel.get_route().get_count()>1  ) {
 		welt->mute_sound(true);
@@ -2534,15 +2618,38 @@ bool tool_build_bridge_t::init( player_t *player )
 	if(  desc  &&  !desc->is_available(welt->get_timeline_year_month())  &&  player!=NULL  &&  player!=welt->get_public_player()  ) {
 		return false;
 	}
+	if (is_ctrl_pressed()  &&  can_use_gui()  &&  desc->get_waytype()==road_wt  ) {
+		create_win(new overtaking_mode_frame_t(player, this), w_info, (ptrdiff_t)this);
+	}
 	return desc!=NULL;
 }
 
+bool tool_build_bridge_t::exit( player_t *player )
+{
+	destroy_win((ptrdiff_t)this);
+	return two_click_tool_t::exit(player);
+}
+
+void tool_build_bridge_t::draw_after(scr_coord k, bool dirty) const
+{
+	const bridge_desc_t *desc = bridge_builder_t::get_desc(default_param);
+	if(  desc  &&  desc->get_waytype()==road_wt  ) {
+		if(  icon!=IMG_EMPTY  &&  is_selected()  ) {
+			display_img_blend( icon, k.x, k.y, TRANSPARENT50_FLAG|OUTLINE_FLAG|color_idx_to_rgb(COL_BLACK), false, dirty );
+			char level_str[16];
+			tool_build_way_t::set_mode_str(level_str, overtaking_mode);
+			display_proportional_rgb( k.x+4, k.y+4, level_str, ALIGN_LEFT, color_idx_to_rgb(COL_YELLOW), true );
+		}
+	} else {
+		two_click_tool_t::draw_after(k,dirty);
+	}
+}
 
 const char *tool_build_bridge_t::do_work( player_t *player, const koord3d &start, const koord3d &end )
 {
 	const bridge_desc_t *desc = bridge_builder_t::get_desc(default_param);
 	if (end==koord3d::invalid) {
-		return bridge_builder_t::build( player, start, desc );
+		return bridge_builder_t::build( player, start, desc, overtaking_mode );
 	}
 	else {
 		const koord zv(ribi_type(end-start));
@@ -2552,7 +2659,7 @@ const char *tool_build_bridge_t::do_work( player_t *player, const koord3d &start
 		if (end2 != end) {
 			return "End position is not valid"; // could only happen for scripts
 		}
-		bridge_builder_t::build_bridge( player, start, end, zv, bridge_height, desc, way_builder_t::weg_search(desc->get_waytype(), desc->get_topspeed(), welt->get_timeline_year_month(), type_flat));
+		bridge_builder_t::build_bridge( player, start, end, zv, bridge_height, desc, way_builder_t::weg_search(desc->get_waytype(), desc->get_topspeed(), welt->get_timeline_year_month(), type_flat), overtaking_mode);
 		return NULL; // all checks are performed before building.
 	}
 }
@@ -2563,6 +2670,9 @@ void tool_build_bridge_t::rdwr_custom_data(memory_rw_t *packet)
 	uint8 i = ribi;
 	packet->rdwr_byte(i);
 	ribi = (ribi_t::ribi)i;
+	sint8 j = overtaking_mode;
+	packet->rdwr_byte(j);
+	overtaking_mode = (overtaking_mode_t)j;
 }
 
 void tool_build_bridge_t::mark_tiles(  player_t *player, const koord3d &start, const koord3d &end )
@@ -2811,9 +2921,32 @@ bool tool_build_tunnel_t::init( player_t *player )
 	if(  desc  &&  !desc->is_available(welt->get_timeline_year_month())  &&  player!=NULL  &&  player!=welt->get_public_player()  ) {
 		return false;
 	}
+	if (is_ctrl_pressed()  &&  can_use_gui()  &&  desc->get_waytype()==road_wt  ) {
+		create_win(new overtaking_mode_frame_t(player, this), w_info, (ptrdiff_t)this);
+	}
 	return desc!=NULL;
 }
 
+void tool_build_tunnel_t::draw_after(scr_coord k, bool dirty) const
+{
+	const tunnel_desc_t *desc = tunnel_builder_t::get_desc(default_param);
+	if(  desc  &&  desc->get_waytype()==road_wt  ) {
+		if(  icon!=IMG_EMPTY  &&  is_selected()  ) {
+			display_img_blend( icon, k.x, k.y, TRANSPARENT50_FLAG|OUTLINE_FLAG|color_idx_to_rgb(COL_BLACK), false, dirty );
+			char level_str[16];
+			tool_build_way_t::set_mode_str(level_str, overtaking_mode);
+			display_proportional_rgb( k.x+4, k.y+4, level_str, ALIGN_LEFT, color_idx_to_rgb(COL_YELLOW), true );
+		}
+	} else {
+		two_click_tool_t::draw_after(k,dirty);
+	}
+}
+
+bool tool_build_tunnel_t::exit( player_t *player )
+{
+	destroy_win((ptrdiff_t)this);
+	return two_click_tool_t::exit(player);
+}
 
 const char *tool_build_tunnel_t::check_pos( player_t *player, koord3d pos)
 {
@@ -2848,7 +2981,7 @@ const char *tool_build_tunnel_t::do_work( player_t *player, const koord3d &start
 		// Build tunnel mouths
 		if (welt->lookup_kartenboden(start.get_2d())->get_hoehe() == start.z) {
 			const tunnel_desc_t *desc = tunnel_builder_t::get_desc(default_param);
-			return tunnel_builder_t::build( player, start.get_2d(), desc, !is_ctrl_pressed() );
+			return tunnel_builder_t::build( player, start.get_2d(), desc, !is_ctrl_pressed(), overtaking_mode );
 		}
 		else {
 			return "";
@@ -2859,11 +2992,20 @@ const char *tool_build_tunnel_t::do_work( player_t *player, const koord3d &start
 		way_builder_t bauigel(player);
 		calc_route( bauigel, start, end );
 		welt->mute_sound(true);
+		bauigel.set_overtaking_mode(overtaking_mode);
 		bauigel.build();
 		welt->mute_sound(false);
 		welt->lookup_kartenboden(end.get_2d())->clear_flag(grund_t::marked);
 		return NULL;
 	}
+}
+
+void tool_build_tunnel_t::rdwr_custom_data(memory_rw_t *packet)
+{
+	two_click_tool_t::rdwr_custom_data(packet);
+	sint8 i = overtaking_mode;
+	packet->rdwr_byte(i);
+	overtaking_mode = (overtaking_mode_t)i;
 }
 
 uint8 tool_build_tunnel_t::is_valid_pos(  player_t *player, const koord3d &pos, const char *&error, const koord3d & )

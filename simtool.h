@@ -267,22 +267,34 @@ private:
 
 protected:
 	const way_desc_t *desc;
+	overtaking_mode_t overtaking_mode;
+	bool look_toolbar = false;
 
 	virtual way_desc_t const* get_desc(uint16, bool) const;
 	void calc_route( way_builder_t &bauigel, const koord3d &, const koord3d & );
 	virtual void start_at( koord3d &new_start );
 
 public:
-	tool_build_way_t(uint16 const id = TOOL_BUILD_WAY | GENERAL_TOOL) : two_click_tool_t(id), desc() {}
+	tool_build_way_t(uint16 const id = TOOL_BUILD_WAY | GENERAL_TOOL) : two_click_tool_t(id), desc() {
+		overtaking_mode = twoway_mode;
+	}
 	image_id get_icon(player_t*) const OVERRIDE;
 	char const* get_tooltip(player_t const*) const OVERRIDE;
 	char const* get_default_param(player_t*) const OVERRIDE;
 	bool is_selected() const OVERRIDE;
-	bool init(player_t*) OVERRIDE;
+	void rdwr_custom_data(memory_rw_t*) OVERRIDE;
+	bool init(player_t* player) OVERRIDE { return init(player, false); }
+	bool init(player_t*,bool called_from_move);
+	bool exit(player_t*) OVERRIDE;
+	void draw_after(scr_coord, bool dirty) const OVERRIDE;
 	bool is_init_network_save() const OVERRIDE { return true; }
 	waytype_t get_waytype() const OVERRIDE;
 	// remove preview necessary while building elevated ways
 	bool remove_preview_necessary() const OVERRIDE { return !is_first_click()  &&  (desc  &&  (desc->get_styp() == type_elevated  &&  desc->get_wtyp() != air_wt)); }
+	void set_overtaking_mode(overtaking_mode_t ov) { overtaking_mode = ov; }
+	overtaking_mode_t get_overtaking_mode() const { return overtaking_mode; }
+	static void set_mode_str(char* str, overtaking_mode_t overtaking_mode);
+	void set_look_toolbar() { look_toolbar = true; }
 };
 
 class tool_build_cityroad : public tool_build_way_t {
@@ -300,12 +312,16 @@ public:
 class tool_build_bridge_t : public two_click_tool_t {
 private:
 	ribi_t::ribi ribi;
+	overtaking_mode_t overtaking_mode;
 
 	char const* do_work(player_t*, koord3d const&, koord3d const&) OVERRIDE;
 	void mark_tiles(player_t*, koord3d const&, koord3d const&) OVERRIDE;
 	uint8 is_valid_pos(player_t*, koord3d const&, char const*&, koord3d const&) OVERRIDE;
+
 public:
-	tool_build_bridge_t() : two_click_tool_t(TOOL_BUILD_BRIDGE | GENERAL_TOOL) {}
+	tool_build_bridge_t() : two_click_tool_t(TOOL_BUILD_BRIDGE | GENERAL_TOOL) {
+		overtaking_mode = twoway_mode;
+	}
 	image_id get_icon(player_t*) const OVERRIDE { return grund_t::underground_mode==grund_t::ugm_all ? IMG_EMPTY : icon; }
 	char const* get_tooltip(player_t const*) const OVERRIDE;
 	bool is_init_network_save() const OVERRIDE { return true; }
@@ -313,22 +329,36 @@ public:
 	bool remove_preview_necessary() const OVERRIDE { return !is_first_click(); }
 	void rdwr_custom_data(memory_rw_t*) OVERRIDE;
 	bool init(player_t*) OVERRIDE;
+	bool exit(player_t*) OVERRIDE;
+	void draw_after(scr_coord, bool dirty) const OVERRIDE;
+	void set_overtaking_mode(overtaking_mode_t ov) { overtaking_mode = ov; }
+	overtaking_mode_t get_overtaking_mode() const { return overtaking_mode; }
 };
 
 class tool_build_tunnel_t : public two_click_tool_t {
 private:
+	overtaking_mode_t overtaking_mode;
+
 	void calc_route( way_builder_t &bauigel, const koord3d &, const koord3d &);
 	char const* do_work(player_t*, koord3d const&, koord3d const&) OVERRIDE;
 	void mark_tiles(player_t*, koord3d const&, koord3d const&) OVERRIDE;
 	uint8 is_valid_pos(player_t*, koord3d const&, char const*&, koord3d const&) OVERRIDE;
+
 public:
-	tool_build_tunnel_t() : two_click_tool_t(TOOL_BUILD_TUNNEL | GENERAL_TOOL) {}
+	tool_build_tunnel_t() : two_click_tool_t(TOOL_BUILD_TUNNEL | GENERAL_TOOL) {
+		overtaking_mode = twoway_mode;
+	}
 	char const* get_tooltip(player_t const*) const OVERRIDE;
 	char const* check_pos(player_t*, koord3d) OVERRIDE;
 	bool is_init_network_save() const OVERRIDE { return true; }
 	waytype_t get_waytype() const OVERRIDE;
 	bool remove_preview_necessary() const OVERRIDE { return !is_first_click(); }
+	void rdwr_custom_data(memory_rw_t*) OVERRIDE;
 	bool init(player_t*) OVERRIDE;
+	bool exit(player_t*) OVERRIDE;
+	void draw_after(scr_coord, bool dirty) const OVERRIDE;
+	void set_overtaking_mode(overtaking_mode_t ov) { overtaking_mode = ov; }
+	overtaking_mode_t get_overtaking_mode() const { return overtaking_mode; }
 };
 
 class tool_wayremover_t : public two_click_tool_t {

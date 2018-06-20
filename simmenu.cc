@@ -632,6 +632,12 @@ void tool_t::read_menu(const std::string &objfilename)
 						*addtool = *(general_tool[toolnr]);
 						set_defaults_general_tool(addtool, param_str);
 
+						if(  toolnr==TOOL_BUILD_WAY  ) {
+							// tool_build_way_t object called from a shortcut key has to use overtaking_mode of the object in the toolbar.
+							tool_build_way_t* way_tool = dynamic_cast<tool_build_way_t*> (addtool);
+							if(  way_tool  ) way_tool->set_look_toolbar();
+						}
+
 						general_tool.append( addtool );
 					}
 					else {
@@ -1120,7 +1126,12 @@ const char *two_click_tool_t::move(player_t *player, uint16 buttonstate, koord3d
 	}
 
 	if(  start == pos  ) {
-		init( player );
+		if(tool_build_way_t* t = dynamic_cast<tool_build_way_t*>(this)) {
+			// This is tool_build_way_t. The mode selection window should not be called.
+			t->init( player, true );
+		} else {
+			init( player );
+		}
 	}
 
 	const char *error = NULL;

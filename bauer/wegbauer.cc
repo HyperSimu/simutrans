@@ -1168,6 +1168,8 @@ way_builder_t::way_builder_t(player_t* player_) : next_gr(32)
 	player_builder     = player_;
 	bautyp = strasse;   // kann mit init_builder() gesetzt werden
 	maximum = 2000;// CA $ PER TILE
+	overtaking_mode = twoway_mode;
+	route_reversed = false;
 
 	keep_existing_ways = false;
 	keep_existing_city_roads = false;
@@ -2190,6 +2192,7 @@ uint32 ms = dr_time();
 		}
 	}
 	else {
+		route_reversed = false;
 		keep_existing_city_roads |= (bautyp&bot_flag)!=0;
 		sint32 cost2;
 		if(desc->get_styp() == type_elevated) {
@@ -2197,6 +2200,7 @@ uint32 ms = dr_time();
 			INT_CHECK("wegbauer 1165");
 			if(cost2 < 0) {
 				intern_calc_route_elevated(ziel[0], start[0]);
+				route_reversed = true;
 				return;
 			}
 		}
@@ -2205,6 +2209,7 @@ uint32 ms = dr_time();
 			INT_CHECK("wegbauer 1165");
 			if(cost2 < 0) {
 				intern_calc_route( ziel, start );
+				route_reversed = true;
 				return;
 			}
 		}
@@ -2214,9 +2219,11 @@ uint32 ms = dr_time();
 		vector_tpl<uint32> terraform_index2(0);
 		swap(route, route2);
 		swap(terraform_index, terraform_index2);
+		route_reversed = true;
 		sint32 cost;
 		if(desc->get_styp() == type_elevated) {
 			cost = intern_calc_route_elevated(start[0], ziel[0]);
+			route_reversed = false;
 		}
 		else {
 			cost = intern_calc_route( start, ziel );
@@ -2271,11 +2278,11 @@ void way_builder_t::build_tunnel_and_bridges()
 
 			if(start->get_grund_hang()==0  ||  start->get_grund_hang()==slope_type(zv*(-1))) {
 				// bridge here, since the route is saved backwards, we have to build it at the posterior end
-				bridge_builder_t::build( player_builder, route[i+1], bridge_desc);
+				bridge_builder_t::build( player_builder, route[i+1], bridge_desc, overtaking_mode );
 			}
 			else {
 				// tunnel
-				tunnel_builder_t::build( player_builder, route[i].get_2d(), tunnel_desc, true );
+				tunnel_builder_t::build( player_builder, route[i].get_2d(), tunnel_desc, true, overtaking_mode );
 			}
 			INT_CHECK( "wegbauer 1584" );
 		}
@@ -2301,14 +2308,14 @@ void way_builder_t::build_tunnel_and_bridges()
 						if( bridge_desc ) {
 							wi->set_ribi(ribi_type(h));
 							wi1->set_ribi(ribi_type(slope_t::opposite(h)));
-							bridge_builder_t::build( player_builder, route[i], bridge_desc);
+							bridge_builder_t::build( player_builder, route[i], bridge_desc, overtaking_mode );
 						}
 					}
 					else if( tunnel_desc ) {
 						// make a short tunnel
 						wi->set_ribi(ribi_type(slope_t::opposite(h)));
 						wi1->set_ribi(ribi_type(h));
-						tunnel_builder_t::build( player_builder, route[i].get_2d(), tunnel_desc, true );
+						tunnel_builder_t::build( player_builder, route[i].get_2d(), tunnel_desc, true, overtaking_mode );
 					}
 					INT_CHECK( "wegbauer 1584" );
 				}
@@ -2478,6 +2485,12 @@ bool way_builder_t::build_tunnel_tile()
 				tunnel->neuen_weg_bauen(weg, route.get_ribi(i), player_builder);
 				tunnel->obj_add(new tunnel_t(route[i], player_builder, tunnel_desc));
 				weg->set_max_speed(tunnel_desc->get_topspeed());
+				if(  tunnel_desc->get_waytype()==road_wt  ) {
+					strasse_t* str = (strasse_t*) weg;
+					assert(str);
+					str->set_overtaking_mode(overtaking_mode);
+					update_ribi_mask_oneway(str,i);
+				}
 				player_t::add_maintenance( player_builder, -weg->get_desc()->get_maintenance(), weg->get_desc()->get_finance_waytype());
 			}
 			else {
@@ -2508,6 +2521,11 @@ bool way_builder_t::build_tunnel_tile()
 					weg_t *weg = gr->get_weg(tunnel_desc->get_waytype());
 					weg->set_desc(wb);
 					weg->set_max_speed(tunnel_desc->get_topspeed());
+					if(  tunnel_desc->get_waytype()==road_wt  ) {
+						strasse_t* str = (strasse_t*)gr->get_weg(road_wt);
+						assert(str);
+						str->set_overtaking_mode(overtaking_mode);
+					}
 					// respect max speed of catenary
 					wayobj_t const* const wo = gr->get_wayobj(tunnel_desc->get_waytype());
 					if (wo  &&  wo->get_desc()->get_topspeed() < weg->get_max_speed()) {
@@ -2518,6 +2536,10 @@ bool way_builder_t::build_tunnel_tile()
 					weg->count_sign();
 
 					cost -= tunnel_desc->get_price();
+				}
+				if(  tunnel_desc->get_waytype()==road_wt  ) {
+					strasse_t *str = (strasse_t*)gr->get_weg(road_wt);
+					update_ribi_mask_oneway(str,i);
 				}
 			}
 			else {
@@ -2589,41 +2611,49 @@ void way_builder_t::build_road()
 
 		// bridges/tunnels have their own track type and must not upgrade
 		if(gr->get_typ()==grund_t::brueckenboden  ||  gr->get_typ()==grund_t::tunnelboden) {
+			// To make changing of overtaking_mode easy, only update overtaking_mode and ribi_mask_oneway
+			strasse_t* str = (strasse_t*)gr->get_weg(road_wt);
+			str->set_overtaking_mode(overtaking_mode);
+			update_ribi_mask_oneway(str,i);
 			continue;
 		}
 
+		strasse_t * str;
+
 		if(extend) {
-			weg_t * weg = gr->get_weg(road_wt);
+			str = (strasse_t*)gr->get_weg(road_wt);
 
 			// keep faster ways or if it is the same way ... (@author prissi)
-			if(weg->get_desc()==desc  ||  keep_existing_ways  ||  (keep_existing_city_roads  &&  weg->hat_gehweg())  ||  (keep_existing_faster_ways  &&  weg->get_desc()->get_topspeed()>desc->get_topspeed())  ||  (player_builder!=NULL  &&  weg->is_deletable(player_builder)!=NULL) || (gr->get_typ()==grund_t::monorailboden && (bautyp&elevated_flag)==0)) {
-				//nothing to be done
+			if((str->get_desc()==desc  &&  str->get_overtaking_mode()==overtaking_mode  )  ||  keep_existing_ways  ||  (keep_existing_city_roads  &&  str->hat_gehweg())  ||  (keep_existing_faster_ways  &&  str->get_desc()->get_topspeed()>desc->get_topspeed())  ||  (player_builder!=NULL  &&  str->is_deletable(player_builder)!=NULL) || (gr->get_typ()==grund_t::monorailboden && (bautyp&elevated_flag)==0)) {
+ 				//nothing to be done
 //DBG_MESSAGE("way_builder_t::build_road()","nothing to do at (%i,%i)",k.x,k.y);
 			}
 			else {
 				// we take ownership => we take care to maintain the roads completely ...
-				player_t *s = weg->get_owner();
-				player_t::add_maintenance(s, -weg->get_desc()->get_maintenance(), weg->get_desc()->get_finance_waytype());
+				player_t *s = str->get_owner();
+				player_t::add_maintenance(s, -str->get_desc()->get_maintenance(), str->get_desc()->get_finance_waytype());
 				// cost is the more expensive one, so downgrading is between removing and new building
-				cost -= max( weg->get_desc()->get_price(), desc->get_price() );
-				weg->set_desc(desc);
+				cost -= max( str->get_desc()->get_price(), desc->get_price() );
+				str->set_desc(desc);
+				str->set_overtaking_mode(overtaking_mode);
 				// respect max speed of catenary
 				wayobj_t const* const wo = gr->get_wayobj(desc->get_wtyp());
-				if (wo  &&  wo->get_desc()->get_topspeed() < weg->get_max_speed()) {
-					weg->set_max_speed( wo->get_desc()->get_topspeed() );
+				if (wo  &&  wo->get_desc()->get_topspeed() < str->get_max_speed()) {
+					str->set_max_speed( wo->get_desc()->get_topspeed() );
 				}
-				weg->set_gehweg(add_sidewalk);
-				player_t::add_maintenance( player_builder, weg->get_desc()->get_maintenance(), weg->get_desc()->get_finance_waytype());
-				weg->set_owner(player_builder);
+				str->set_gehweg(add_sidewalk);
+				player_t::add_maintenance( player_builder, str->get_desc()->get_maintenance(), str->get_desc()->get_finance_waytype());
+				str->set_owner(player_builder);
 				// respect speed limit of crossing
-				weg->count_sign();
+				str->count_sign();
 			}
 		}
 		else {
 			// make new way
-			strasse_t * str = new strasse_t();
+			str = new strasse_t();
 
 			str->set_desc(desc);
+			str->set_overtaking_mode(overtaking_mode);
 			str->set_gehweg(add_sidewalk);
 			cost = -gr->neuen_weg_bauen(str, route.get_short_ribi(i), player_builder)-desc->get_price();
 
@@ -2633,6 +2663,8 @@ void way_builder_t::build_road()
 				player_builder->add_undo( route[i] );
 			}
 		}
+		//update ribi_mask_oneway if road is oneway_mode.
+		update_ribi_mask_oneway(str,i);
 		gr->calc_image();	// because it may be a crossing ...
 		reliefkarte_t::get_karte()->calc_map_pixel(k);
 		player_t::book_construction_costs(player_builder, cost, k, road_wt);
@@ -3014,4 +3046,22 @@ uint32 way_builder_t::calc_distance( const koord3d &pos, const koord3d &mini, co
 		dist += (pos.z - maxi.z) * s.way_count_slope;
 	}
 	return dist;
+}
+
+void way_builder_t::update_ribi_mask_oneway(strasse_t* str, uint32 i)
+{
+	if(  str->get_overtaking_mode()>oneway_mode  ) {
+		str->set_ribi_mask_oneway(ribi_t::none);
+	} else if(  overtaking_mode<=oneway_mode  &&  get_count()>1   ){ //of course street is oneway_mode
+		if(  i==0  ) {
+			if(  route_reversed  ) str->update_ribi_mask_oneway(ribi_type(route[0],route[1]),ribi_t::none);
+			if(  !route_reversed  ) str->update_ribi_mask_oneway(ribi_t::none,ribi_type(route[0],route[1]));
+		} else if(  i==get_count()-1  ) {
+			if(  route_reversed  ) str->update_ribi_mask_oneway(ribi_t::none,ribi_type(route[i],route[i-1]));
+			if(  !route_reversed  ) str->update_ribi_mask_oneway(ribi_type(route[i],route[i-1]),ribi_t::none);
+		} else {
+			if(  route_reversed  )  str->update_ribi_mask_oneway(ribi_type(route[i],route[i+1]),ribi_type(route[i],route[i-1]));
+			if(  !route_reversed  )  str->update_ribi_mask_oneway(ribi_type(route[i],route[i-1]),ribi_type(route[i],route[i+1]));
+		}
+	}
 }

@@ -35,6 +35,7 @@
 #include "../../player/simplay.h"
 #include "../../obj/roadsign.h"
 #include "../../obj/signal.h"
+#include "../../obj/wayobj.h"
 #include "../../obj/crossing.h"
 #include "../../utils/cbuffer_t.h"
 #include "../../dataobj/environment.h" // TILE_HEIGHT_STEP
@@ -235,6 +236,35 @@ void weg_t::info(cbuffer_t & buf) const
 	buf.printf("%s %u%s", translator::translate("Max. speed:"), max_speed, translator::translate("km/h\n"));
 	buf.printf("%s%u",    translator::translate("\nRibi (unmasked)"), get_ribi_unmasked());
 	buf.printf("%s%u\n",  translator::translate("\nRibi (masked)"),   get_ribi());
+
+	if(  get_waytype() == road_wt  ) {
+		strasse_t* str = (strasse_t*) this;
+		assert(str);
+		// Display overtaking_info
+		switch (str->get_overtaking_mode()) {
+			case halt_mode:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("halt mode"));
+				break;
+			case oneway_mode:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("oneway"));
+				break;
+			case twoway_mode:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("twoway"));
+				break;
+			case loading_only_mode:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("only loading convoi"));
+				break;
+			case prohibited_mode:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("prohibited"));
+				break;
+			case inverted_mode:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("inverted"));
+				break;
+			default:
+				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("ERROR"));
+				break;
+		}
+	}
 
 	if(has_sign()) {
 		buf.append(translator::translate("\nwith sign/signal\n"));

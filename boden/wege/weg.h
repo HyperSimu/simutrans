@@ -250,7 +250,7 @@ public:
 	/**
 	* Get the masked direction bits (ribi) for the way (with signals or other ribi changer).
 	*/
-	ribi_t::ribi get_ribi() const { return (ribi_t::ribi)(ribi & ~ribi_maske); }
+	virtual ribi_t::ribi get_ribi() const { return (ribi_t::ribi)(ribi & ~ribi_maske); }
 
 	/**
 	* für Signale ist es notwendig, bestimmte Richtungsbits auszumaskieren
@@ -264,7 +264,7 @@ public:
 	 * called during map rotation
 	 * @author priss
 	 */
-	void rotate90();
+	virtual void rotate90();
 
 	/**
 	* book statistics - is called very often and therefore inline
