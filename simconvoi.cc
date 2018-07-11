@@ -31,6 +31,7 @@
 #include "gui/convoi_detail_t.h"
 #include "boden/grund.h"
 #include "boden/wege/schiene.h"	// for railblocks
+#include "boden/wege/strasse.h"
 
 #include "descriptor/vehicle_desc.h"
 #include "descriptor/roadsign_desc.h"
@@ -1181,10 +1182,14 @@ void convoi_t::step()
 		check_pending_updates();
 	}
 
+	strasse_t* str;
 	switch(state) {
 
 		case LOADING:
 			laden();
+			//When loading, vehicle should not be on passing lane.
+			str = (strasse_t*)welt->lookup(get_pos())->get_weg(road_wt);
+			if(  str  &&  str->get_overtaking_mode()!=halt_mode  ) set_tiles_overtaking(0);
 			break;
 
 		case DUMMY4:
