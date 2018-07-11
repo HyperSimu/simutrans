@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997 - 2001 Hansjörg Malthaner
+ * Copyright (c) 1997 - 2001 Hansjï¿½rg Malthaner
  *
  * This file is part of the Simutrans project under the artistic licence.
  * (see licence.txt)
@@ -125,7 +125,7 @@ const char *weg_t::waytype_to_string(waytype_t wt)
 
 
 /**
- * Setzt neue Description. Ersetzt alte Höchstgeschwindigkeit
+ * Setzt neue Description. Ersetzt alte Hï¿½chstgeschwindigkeit
  * mit wert aus Description.
  * @author Hj. Malthaner
  */
@@ -226,7 +226,7 @@ void weg_t::rdwr(loadsave_t *file)
 
 
 /**
- * Info-text für diesen Weg
+ * Info-text fï¿½r diesen Weg
  * @author Hj. Malthaner
  */
 void weg_t::info(cbuffer_t & buf) const
@@ -250,15 +250,6 @@ void weg_t::info(cbuffer_t & buf) const
 				break;
 			case twoway_mode:
 				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("twoway"));
-				break;
-			case loading_only_mode:
-				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("only loading convoi"));
-				break;
-			case prohibited_mode:
-				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("prohibited"));
-				break;
-			case inverted_mode:
-				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("inverted"));
 				break;
 			default:
 				buf.printf("%s %s\n", translator::translate("Overtaking:"),translator::translate("ERROR"));

@@ -11,6 +11,7 @@
 #include "../../display/simimg.h"
 #include "../../simtypes.h"
 #include "../../simobj.h"
+#include "../../simskin.h"
 #include "../../descriptor/way_desc.h"
 #include "../../dataobj/koord3d.h"
 
@@ -49,6 +50,9 @@ enum way_statistics {
  */
 class weg_t : public obj_no_info_t
 {
+
+	friend class strasse_t;
+	
 public:
 	/**
 	* Get list of all ways
@@ -120,7 +124,7 @@ private:
 	* initializes statistic array
 	* @author hsiegeln
 	*/
-	void init_statistics();
+	virtual void init_statistics();
 
 protected:
 
@@ -250,7 +254,7 @@ public:
 	/**
 	* Get the masked direction bits (ribi) for the way (with signals or other ribi changer).
 	*/
-	virtual ribi_t::ribi get_ribi() const { return (ribi_t::ribi)(ribi & ~ribi_maske); }
+	virtual ribi_t::ribi get_ribi() const { return (ribi_t::ribi)(ribi & ~ribi_maske); };
 
 	/**
 	* für Signale ist es notwendig, bestimmte Richtungsbits auszumaskieren
@@ -283,7 +287,7 @@ public:
 	* new month
 	* @author hsiegeln
 	*/
-	void new_month();
+	virtual void new_month();
 
 	void check_diagonal();
 
@@ -316,7 +320,7 @@ public:
 	image_id get_image() const {return image;}
 
 	inline void set_foreground_image( image_id b ) { foreground_image = b; }
-	image_id get_front_image() const {return foreground_image;}
+	virtual image_id get_front_image() const {return foreground_image;}
 
 
 	// correct maintenance
