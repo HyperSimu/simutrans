@@ -1187,7 +1187,7 @@ void convoi_t::step()
 
 		case LOADING:
 			laden();
-			//When loading, vehicle should not be on passing lane.
+			//When loading, vehicle should not be on passing lane.  Except for the road is set halt_mode.
 			str = (strasse_t*)welt->lookup(get_pos())->get_weg(road_wt);
 			if(  str  &&  str->get_overtaking_mode()!=halt_mode  ) set_tiles_overtaking(0);
 			break;
@@ -3606,34 +3606,42 @@ bool convoi_t::can_overtake(overtaker_t *other_overtaker, sint32 other_speed, si
 			// should never happen, since there is a vehicle in front of us ...
 			return false;
 		}
-		weg_t *str = gr->get_weg(road_wt);
+		strasse_t *str = (strasse_t*)gr->get_weg(road_wt);
 		if(  str==0  ) {
-			// also this is not possible, since a car loads in front of is!?!
+			// also this is not possible, since a car loads in front of us!?!
 			return false;
 		}
 
+		overtaking_mode_t overtaking_mode = str->get_overtaking_mode();
 		uint16 idx = fahr[0]->get_route_index();
-		const sint32 tiles = other_speed == 0 ? 2 : (steps_other-1)/(CARUNITS_PER_TILE*VEHICLE_STEPS_PER_CARUNIT) + get_tile_length() + 1;
-		if(  tiles > 0  &&  idx+(uint32)tiles >= route.get_count()  ) {
+		const sint32 tiles = 2;
+		if(  idx+(uint32)tiles >= route.get_count()  ) {
 			// needs more space than there
 			return false;
 		}
 
 		for(  sint32 i=0;  i<tiles;  i++  ) {
-			grund_t *gr = welt->lookup( route.at( idx+i ) );
-			if(  gr==NULL  ) {
-				return false;
-			}
-			weg_t *str = gr->get_weg(road_wt);
-			if(  str==0  ) {
-				return false;
-			}
 			// not overtaking on railroad crossings or normal crossings ...
 			if(  str->is_crossing() ) {
 				return false;
 			}
 			if(  ribi_t::is_threeway(str->get_ribi())  ) {
 				return false;
+			}
+			const overtaking_mode_t mode_of_the_tile = str->get_overtaking_mode();
+			if(  mode_of_the_tile>overtaking_mode  ) {
+				// update overtaking_mode to a stricter condition.
+				overtaking_mode = mode_of_the_tile;
+			}
+			if(  idx+(uint32)i==route.get_count()-1  &&  i<tiles-1  ) {
+				// reach the end of route before examination of all tiles needed for overtaking.
+				// convoy can stop on the passing lane only in halt_mode.
+				if(  overtaking_mode==halt_mode  ) {
+					set_tiles_overtaking(tiles);
+					return true;
+				} else {
+					return false;
+				}
 			}
 			// Check for other vehicles on the next tile
 			const uint8 top = gr->get_top();
