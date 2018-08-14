@@ -274,9 +274,9 @@ void modal_dialogue( gui_frame_t *gui, ptrdiff_t magic, karte_t *welt, bool (*qu
 			if(ev.ev_class==EVENT_SYSTEM) {
 				if (ev.ev_code==SYSTEM_RESIZE) {
 					// main window resized
-					simgraph_resize( ev.mx, ev.my );
+					simgraph_resize( ev.size_x, ev.size_y );
 					dr_prepare_flush();
-					display_fillbox_wh_rgb( 0, 0, ev.mx, ev.my, color_idx_to_rgb(COL_BLACK), true );
+					display_fillbox_wh_rgb( 0, 0, ev.size_x, ev.size_y, color_idx_to_rgb(COL_BLACK), true );
 					dr_flush();
 				}
 				else if (ev.ev_code == SYSTEM_QUIT) {
@@ -423,7 +423,7 @@ int simu_main(int argc, char** argv)
 			" -fps COUNT          framerate (from 5 to 100)\n"
 			" -h | -help | --help displays this help\n"
 			" -lang CODE          starts with specified language\n"
-			" -load FILE[.sve]    loads game in file 'save/FILE.sve'\n"
+			" -load NAME          loads savegame with name 'NAME' from Simutrans 'save' directory\n"
 			" -log                enables logging to file 'simu.log'\n"
 #ifdef SYSLOG
 			" -syslog             enable logging to syslog\n"
@@ -538,6 +538,9 @@ int simu_main(int argc, char** argv)
 		env_t::user_dir = env_t::program_dir;
 	}
 	dr_chdir( env_t::user_dir );
+	dr_mkdir("maps");
+	dr_mkdir(SAVE_PATH);
+	dr_mkdir(SCREENSHOT_PATH);
 
 
 #ifdef REVISION
@@ -622,9 +625,12 @@ int simu_main(int argc, char** argv)
 	dr_chdir( env_t::program_dir );
 	if(  found_simuconf  ) {
 		if(simuconf.open(path_to_simuconf)) {
+			// we do not allow to change the global font name
+			std::string old_fontname = env_t::fontname;
 			printf("parse_simuconf() at config/simuconf.tab: ");
 			env_t::default_settings.parse_simuconf( simuconf, disp_width, disp_height, fullscreen, env_t::objfilename );
 			simuconf.close();
+			env_t::fontname = old_fontname;
 		}
 	}
 
@@ -684,8 +690,9 @@ int simu_main(int argc, char** argv)
 		dbg->message( "simmain()", "Server started on port %i", env_t::server_port );
 		env_t::networkmode = network_init_server( env_t::server_port );
 		// query IP and try to open ports on router
-		char IP[256];
-		if(  prepare_for_server( IP, env_t::server_port )  ) {
+		char IP[256], altIP[256];
+		altIP[0] = 0;
+		if(  prepare_for_server( IP, altIP, env_t::server_port )  ) {
 			// we have forwarded a port in router, so we can continue
 			env_t::server_dns = IP;
 			if(  env_t::server_name.empty()  ) {
@@ -693,6 +700,8 @@ int simu_main(int argc, char** argv)
 			}
 			env_t::server_announce = 1;
 			env_t::easy_server = 1;
+			env_t::server_dns = IP;
+			env_t::server_alt_dns = altIP;
 		}
 	}
 
@@ -809,9 +818,12 @@ int simu_main(int argc, char** argv)
 	// default simuconf.tab
 	if(  found_simuconf  ) {
 		if(simuconf.open(path_to_simuconf)) {
+			// we do not allow to change the global font name also from the pakset ...
+			std::string old_fontname = env_t::fontname;
 			printf("parse_colours() at config/simuconf.tab: ");
 			env_t::default_settings.parse_colours( simuconf );
 			simuconf.close();
+			env_t::fontname = old_fontname;
 		}
 	}
 	// a portable installation could have a personal simuconf.tab in the main dir of simutrans
@@ -986,13 +998,17 @@ int simu_main(int argc, char** argv)
 #endif
 
 	// just check before loading objects
-	if (!gimme_arg(argc, argv, "-nosound", 0)  &&  dr_init_sound()) {
+	if(  dr_init_sound()  ) {
 		dbg->important("Reading compatibility sound data ...");
 		sound_desc_t::init();
 	}
 	else {
 		sound_set_mute(true);
 	}
+	if(  !gimme_arg(argc, argv, "-nosound", 0)  ) {
+		sound_set_mute(true);
+	}
+
 
 	// Adam - Moved away loading from simmain and placed into translator for better modularization
 	if(  !translator::load(env_t::objfilename)  ) {
@@ -1020,9 +1036,8 @@ int simu_main(int argc, char** argv)
 		translator::set_language( env_t::language_iso );
 	}
 
-	// Hajo: simgraph init loads default fonts, now we need to load
-	// the real fonts for the current language
-	sprachengui_t::init_font_from_lang();
+	// Hajo: simgraph init loads default fonts, now we need to load (if not set otherwise)
+	sprachengui_t::init_font_from_lang( strcmp(env_t::fontname.c_str(), FONT_PATH_X "prop.fnt")==0 );
 	dr_chdir(env_t::program_dir);
 
 	dbg->important("Reading city configuration ...");
@@ -1208,6 +1223,11 @@ DBG_MESSAGE("simmain","loadgame file found at %s",buffer);
 		DBG_DEBUG( "simmain()", "Server IP set to '%s'.", ref_str );
 	}
 
+	if(  const char *ref_str = gimme_arg(argc, argv, "-server_altdns", 1)  ) {
+		env_t::server_alt_dns = ref_str;
+		DBG_DEBUG( "simmain()", "Server IP set to '%s'.", ref_str );
+	}
+
 	if(  const char *ref_str = gimme_arg(argc, argv, "-server_name", 1)  ) {
 		env_t::server_name = ref_str;
 		DBG_DEBUG( "simmain()", "Server name set to '%s'.", ref_str );
@@ -1215,6 +1235,12 @@ DBG_MESSAGE("simmain","loadgame file found at %s",buffer);
 
 	if(  const char *ref_str = gimme_arg(argc, argv, "-server_admin_pw", 1)  ) {
 		env_t::server_admin_pw = ref_str;
+	}
+
+	if(  env_t::server_dns.empty()  &&  !env_t::server_alt_dns.empty()  ) {
+		dbg->warning( "simmain", "server_altdns but not server_dns set. Please use server_dns first!" );
+		env_t::server_dns = env_t::server_alt_dns;
+		env_t::server_alt_dns.clear();
 	}
 
 	dr_chdir(env_t::user_dir);
@@ -1313,8 +1339,8 @@ DBG_MESSAGE("simmain","loadgame file found at %s",buffer);
 	welt->set_dirty();
 
 	// Hajo: simgraph init loads default fonts, now we need to load
-	// the real fonts for the current language
-	sprachengui_t::init_font_from_lang();
+	// the real fonts for the current language, if not set otherwise
+	sprachengui_t::init_font_from_lang( strcmp(env_t::fontname.c_str(), FONT_PATH_X "prop.fnt")==0 );
 
 	if(   !(env_t::reload_and_save_on_quit  &&  !new_world)  ) {
 		destroy_all_win(true);

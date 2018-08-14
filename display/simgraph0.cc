@@ -92,15 +92,6 @@ void display_set_actual_width(KOORD_VAL)
 {
 }
 
-int display_get_light()
-{
-	return 0;
-}
-
-void display_set_light(int)
-{
-}
-
 void display_day_night_shift(int)
 {
 }
@@ -427,7 +418,7 @@ void display_img_aligned( const image_id, scr_rect, int, int )
 {
 }
 
-KOORD_VAL display_proportional_ellipse_rgb( scr_rect, const char *, int, PIXVAL, bool)
+KOORD_VAL display_proportional_ellipsis_rgb( scr_rect, const char *, int, PIXVAL, bool)
 {
 	return 0;
 }

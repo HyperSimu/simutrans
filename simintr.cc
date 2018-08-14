@@ -86,13 +86,6 @@ void intr_refresh_display(bool dirty)
 }
 
 
-void interrupt_check()
-{
-	interrupt_check( "0" );
-}
-
-
-
 // debug version with caller information
 void interrupt_check(const char* caller_info)
 {
@@ -127,19 +120,12 @@ void intr_set(karte_t *welt, main_view_t *view)
 }
 
 /**
- * currently only used by the pause tool. Use with care!
  * @author Hj. Malthaner
  */
 void intr_set_last_time(uint32 time)
 {
 	last_time = time;
 }
-
-uint32 intr_get_last_time()
-{
-	return last_time;
-}
-
 
 void intr_disable()
 {
@@ -239,7 +225,7 @@ char const *tick_to_string( sint32 ticks, bool show_full )
 	}
 	else {
 		if(  ticks == 0  ) {
-			return "now";
+			return translator::translate("now");
 		}
 
 		// suppress as much as possible, assuming this is an relative offset to the current month

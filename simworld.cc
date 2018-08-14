@@ -4867,13 +4867,14 @@ void karte_t::switch_server( bool start_server, bool port_forwarding )
 			if(  env_t::networkmode  ) {
 
 				// query IP and try to open ports on router
-				char IP[256];
-				if(  port_forwarding  &&  prepare_for_server( IP, env_t::server_port )  ) {
+				char IP[256], altIP[256];
+				if(  port_forwarding  &&  prepare_for_server( IP, altIP, env_t::server_port )  ) {
 					// we have forwarded a port in router, so we can continue
 					env_t::server_dns = IP;
 					if(  env_t::server_name.empty()  ) {
 						env_t::server_name = std::string("Server at ")+IP;
 					}
+					env_t::server_alt_dns = altIP;
 					env_t::server_announce = 1;
 					env_t::easy_server = 1;
 					if(  env_t::fps>15  ) {
@@ -5094,7 +5095,10 @@ DBG_MESSAGE("karte_t::load()","Savegame version is %d", file.get_version());
 				win->set_text( msg );
 				create_win(win, w_info, magic_pakset_info_t);
 			}
-			// do not notify if we restore everything
+			// will not notify if we restore everything
+			if(  scenario->is_scripted()  ) {
+				scenario->open_info_win();
+			}
 			create_win( new news_img("Spielstand wurde\ngeladen!\n"), w_time_delete, magic_none);
 		}
 		set_dirty();
@@ -6816,16 +6820,20 @@ void karte_t::announce_server(int status)
 	// Announce game info to server, format is:
 	// st=on&dns=server.com&port=13353&rev=1234&pak=pak128&name=some+name&time=3,1923&size=256,256&active=[0-16]&locked=[0-16]&clients=[0-16]&towns=15&citizens=3245&factories=33&convoys=56&stops=17
 	// (This is the data part of an HTTP POST)
-	if(  env_t::server_announce  ) {
+	if(  env_t::server  &&  env_t::server_announce  ) {
 		// in easy_server mode, we assume the IP may change frequently and thus query it before each announce
-		cbuffer_t buf;
-		if(  env_t::easy_server  &&  status<2  &&  get_external_IP(buf)  ) {
+		cbuffer_t buf, altbuf;
+		if(  env_t::easy_server  &&  status<2  &&  atoi(env_t::server_dns.c_str())  &&  get_external_IP(buf,altbuf)  ) {
+			// if only numerical IP, then check if still current
 			env_t::server_dns = (const char *)buf;
+			env_t::server_alt_dns = (const char *)altbuf;
 		}
 		// Always send dns and port as these are used as the unique identifier for the server
 		buf.clear();
 		buf.append( "&dns=" );
 		encode_URI( buf, env_t::server_dns.c_str() );
+		buf.append( "&alt_dns=" );
+		encode_URI( buf, env_t::server_alt_dns.c_str() );
 		buf.printf( "&port=%u", env_t::server );
 		// Always send announce interval to allow listing server to predict next announce
 		buf.printf( "&aiv=%u", env_t::server_announce_interval );
@@ -6895,7 +6903,6 @@ void karte_t::announce_server(int status)
 		else {
 			buf.append( "&st=0" );
 		}
-
 		network_http_post( ANNOUNCE_SERVER, ANNOUNCE_URL, buf, NULL );
 
 		// Record time of this announce
