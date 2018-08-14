@@ -3589,38 +3589,40 @@ void convoi_t::set_withdraw(bool new_withdraw)
  */
 bool convoi_t::can_overtake(overtaker_t *other_overtaker, sint32 other_speed, sint16 steps_other)
 {
-	if(fahr[0]->get_waytype()!=road_wt) {
+	if(  fahr[0]->get_waytype()!=road_wt  ) {
 		return false;
 	}
-
-	if (!other_overtaker->can_be_overtaken()) {
+	grund_t *gr = welt->lookup(get_pos());
+	if(  gr==NULL  ) {
+		// should never happen, since there is a vehicle in front of us ...
+		return false;
+	}
+	strasse_t *str = (strasse_t*)gr->get_weg(road_wt);
+	if(  str==0  ) {
+		// also this is not possible, since a car loads in front of is!?!
+		return false;
+	}
+	overtaking_mode_t overtaking_mode = str->get_overtaking_mode();
+	if (  !other_overtaker->can_be_overtaken()  ) {
 		return false;
 	}
 
 	if(  other_speed == 0  ) {
-		/* overtaking a loading convoi
-		 * => we can do a lazy check, since halts are always straight
-		 */
-		grund_t *gr = welt->lookup(get_pos());
-		if(  gr==NULL  ) {
-			// should never happen, since there is a vehicle in front of us ...
-			return false;
-		}
-		strasse_t *str = (strasse_t*)gr->get_weg(road_wt);
-		if(  str==0  ) {
-			// also this is not possible, since a car loads in front of us!?!
-			return false;
-		}
+		// overtaking a loading convoi
+		// => we can do a lazy check, since halts are always straight
 
-		overtaking_mode_t overtaking_mode = str->get_overtaking_mode();
 		uint16 idx = fahr[0]->get_route_index();
 		const sint32 tiles = 2;
-		if(  idx+(uint32)tiles >= route.get_count()  ) {
-			// needs more space than there
-			return false;
-		}
 
 		for(  sint32 i=0;  i<tiles;  i++  ) {
+			grund_t *gr = welt->lookup( route.at( idx+i ) );
+			if(  gr==NULL  ) {
+				return false;
+			}
+			strasse_t *str = (strasse_t*)gr->get_weg(road_wt);
+			if(  str==0  ) {
+				return false;
+			}
 			// not overtaking on railroad crossings or normal crossings ...
 			if(  str->is_crossing() ) {
 				return false;
@@ -3629,7 +3631,7 @@ bool convoi_t::can_overtake(overtaker_t *other_overtaker, sint32 other_speed, si
 				return false;
 			}
 			const overtaking_mode_t mode_of_the_tile = str->get_overtaking_mode();
-			if(  mode_of_the_tile>overtaking_mode  ) {
+			if(  mode_of_the_tile > overtaking_mode  ) {
 				// update overtaking_mode to a stricter condition.
 				overtaking_mode = mode_of_the_tile;
 			}
@@ -3652,8 +3654,8 @@ bool convoi_t::can_overtake(overtaker_t *other_overtaker, sint32 other_speed, si
 					if(ov) {
 						if(this!=ov  &&  other_overtaker!=ov) {
 							return false;
-						}
-					}
+ 						}
+ 					}
 					else if(  v->get_waytype()==road_wt  &&  v->get_typ()!=obj_t::pedestrian  ) {
 						return false;
 					}
