@@ -127,7 +127,6 @@ private:
 	const tunnel_desc_t * tunnel_desc;
 
 	/**
-	 * Only for road
 	 * @author THLeaderH
 	 */
 	overtaking_mode_t overtaking_mode;
@@ -187,7 +186,7 @@ private:
 
 	uint32 calc_distance( const koord3d &pos, const koord3d &mini, const koord3d &maxi );
 
-	void update_ribi_mask_oneway(strasse_t* str, uint32 i);
+	void update_ribi_mask_oneway(weg_t* weg, uint32 i);
 
 public:
 	const koord3d_vector_t &get_route() const { return route; }

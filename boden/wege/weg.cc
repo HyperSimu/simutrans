@@ -186,6 +186,19 @@ void weg_t::rdwr(loadsave_t *file)
 {
 	xml_tag_t t( file, "weg_t" );
 
+	if(  file->get_version() >= 120007  ) {
+		uint8 mask_oneway = get_ribi_mask_oneway();
+		file->rdwr_byte(mask_oneway);
+		set_ribi_mask_oneway(mask_oneway);
+		sint8 ov = get_overtaking_mode();
+		file->rdwr_byte(ov);
+		overtaking_mode_t nov = (overtaking_mode_t)ov;
+		set_overtaking_mode(nov);
+	} else {
+		set_ribi_mask_oneway(ribi_t::none);
+		set_overtaking_mode(twoway_mode);
+	}
+	
 	// save owner
 	if(  file->get_version() >= 99006  ) {
 		sint8 spnum=get_player_nr();
@@ -603,4 +616,39 @@ const char *weg_t::is_deletable(const player_t *player)
 		return NULL;
 	}
 	return obj_t::is_deletable(player);
+}
+
+ribi_t::ribi weg_t::get_ribi() const {
+	ribi_t::ribi ribi = get_ribi_unmasked();
+	ribi_t::ribi ribi_maske = get_ribi_maske();
+	if(  overtaking_mode<=oneway_mode  ) {
+		return (ribi_t::ribi)((ribi & ~ribi_maske) & ~ribi_mask_oneway);
+	} else {
+		return (ribi_t::ribi)(ribi & ~ribi_maske);
+	}
+}
+
+void weg_t::update_ribi_mask_oneway(ribi_t::ribi mask, ribi_t::ribi allow)
+{
+	// assertion. @mask and @allow must be single or none.
+	if(!(ribi_t::is_single(mask)||(mask==ribi_t::none))) dbg->error( "weg_t::update_ribi_mask_oneway()", "mask is not single or none.");
+	if(!(ribi_t::is_single(allow)||(allow==ribi_t::none))) dbg->error( "weg_t::update_ribi_mask_oneway()", "allow is not single or none.");
+
+	if(  mask==ribi_t::none  ) {
+		if(  ribi_t::is_twoway(get_ribi_unmasked())  ) {
+			// auto complete
+			ribi_mask_oneway |= (get_ribi_unmasked()-allow);
+		}
+	} else {
+		ribi_mask_oneway |= mask;
+	}
+	// remove backward ribi
+	if(  allow==ribi_t::none  ) {
+		if(  ribi_t::is_twoway(get_ribi_unmasked())  ) {
+			// auto complete
+			ribi_mask_oneway &= ~(get_ribi_unmasked()-mask);
+		}
+	} else {
+		ribi_mask_oneway &= ~allow;
+	}
 }

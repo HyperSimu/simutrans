@@ -52,7 +52,7 @@ class weg_t : public obj_no_info_t
 {
 
 	friend class strasse_t;
-	
+
 public:
 	/**
 	* Get list of all ways
@@ -98,6 +98,32 @@ private:
 	* @author Hj. Malthaner
 	*/
 	uint8 ribi_maske:4;
+
+	/**
+	* @author THLeaderH
+	*/
+	overtaking_mode_t overtaking_mode;
+
+	/**
+	* Mask used by oneway_mode road
+	* @author THLeaderH
+	*/
+	uint8 ribi_mask_oneway:4;
+
+	/**
+	* Overtaking mode (declared in simtypes.h)
+	* halt_mode = vehicles can stop on passing lane (for road only)
+	* oneway_mode = condition for one-way
+	* twoway_mode = condition for two-way
+	* @author teamhimeH
+	*/
+	overtaking_mode_t get_overtaking_mode() const { return overtaking_mode; };
+	void set_overtaking_mode(overtaking_mode_t o) { overtaking_mode = o; };
+
+	void set_ribi_mask_oneway(ribi_t::ribi ribi) { ribi_mask_oneway = (uint8)ribi; }
+	// used in wegbauer. param @allow is ribi in which vehicles can go. without this, ribi cannot be updated correctly at intersections.
+	void update_ribi_mask_oneway(ribi_t::ribi mask, ribi_t::ribi allow);
+	ribi_t::ribi get_ribi_mask_oneway() const { return (ribi_t::ribi)ribi_mask_oneway; }
 
 	/**
 	* flags like walkway, electrification, road sings
@@ -254,7 +280,7 @@ public:
 	/**
 	* Get the masked direction bits (ribi) for the way (with signals or other ribi changer).
 	*/
-	virtual ribi_t::ribi get_ribi() const { return (ribi_t::ribi)(ribi & ~ribi_maske); };
+	virtual ribi_t::ribi get_ribi() const;
 
 	/**
 	* für Signale ist es notwendig, bestimmte Richtungsbits auszumaskieren
