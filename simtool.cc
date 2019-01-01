@@ -6280,7 +6280,120 @@ const char *tool_make_stop_public_t::work( player_t *player, koord3d p )
 	return NULL;
 }
 
+/* merge stop */
+image_id tool_merge_stop_t::get_marker_image()
+{
+	return cursor;
+}
 
+void tool_merge_stop_t::read_start_position(player_t *player, const koord3d &pos)
+{
+	waytype[0] = invalid_wt;
+	waytype[1] = invalid_wt;
+	halt_be_merged_from = halthandle_t();
+	halt_be_merged_to = halthandle_t();
+
+	grund_t *bd = welt->lookup(pos);
+	if (bd==NULL) {
+		return;
+	}
+	// now assign waytypes
+	if(bd->is_water()) {
+		waytype[0] = water_wt;
+	}
+	else {
+		waytype[0] = bd->get_weg_nr(0)->get_waytype();
+		if(bd->get_weg_nr(1)) {
+			waytype[1] = bd->get_weg_nr(1)->get_waytype();
+		}
+	}
+	// .. and halt
+	halt_be_merged_from = haltestelle_t::get_halt(pos,player);
+}
+
+uint8 tool_merge_stop_t::is_valid_pos(  player_t *player, const koord3d &pos, const char *&error, const koord3d &start)
+{
+	grund_t *bd1 = welt->lookup(pos);
+	grund_t *bd2 = welt->lookup(start);
+	if ( bd1==NULL || bd2==NULL ) {
+		error = "";
+		return 0;
+	}
+	// check halt ownership
+	halthandle_t h1 = haltestelle_t::get_halt(start,player);
+	halthandle_t h2 = haltestelle_t::get_halt(pos,player);
+	if(  !h1.is_bound() ||  !h2.is_bound()  ) {
+		error = "";
+		return 0;
+	}
+	if(  ( h1.is_bound()  &&  !player_t::check_owner( player, h1->get_owner() ) ) || ( h2.is_bound()  &&  !player_t::check_owner( player, h2->get_owner() ) )  ) {
+		error = "Das Feld gehoert\neinem anderen Spieler\n";
+		return 0;
+	}
+	// check for halt on the tile
+	if(  ( h1.is_bound()  &&  !(bd1->is_halt()  ||  (h1->get_station_type()  &  haltestelle_t::dock  &&  bd1->is_water()) ) ) ||
+	     ( h2.is_bound()  &&  !(bd2->is_halt()  ||  (h2->get_station_type()  &  haltestelle_t::dock  &&  bd2->is_water()) ) ) ) {
+		error = NOTICE_UNSUITABLE_GROUND;
+		return 0;
+	}
+
+	if (start==koord3d::invalid) {
+		// check for existing ways
+		if (bd1->is_water()  ||  bd1->hat_wege()) {
+			return 2;
+		}
+		else {
+			error = NOTICE_UNSUITABLE_GROUND;
+			return 0;
+		}
+	}
+	else {
+		// read conditions at start point
+		read_start_position(player, start);
+		// check halts vs waypoints
+		if(h1.is_bound() ^ h2.is_bound()) {
+			error = "Can only move from halt to halt or waypoint to waypoint.";
+			return 0;
+		}
+		// check waytypes
+		if(  (waytype[0] == water_wt  &&  bd1->is_water())  ||  bd1->hat_weg(waytype[0])  ||  bd1->hat_weg(waytype[1])  ) {
+			// ok
+			return 2;
+		}
+		else {
+			error = NOTICE_UNSUITABLE_GROUND;
+			return 0;
+		}
+	}
+}
+
+const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_pos, const koord3d &pos)
+{
+	// read conditions at start point
+	read_start_position(player, last_pos);
+
+	// second click
+	//grund_t *gr = welt->lookup(pos);
+	halt_be_merged_to = haltestelle_t::get_halt(pos,player);
+	player_t *const psplayer = welt->get_public_player();
+	bool const giveaway = player != psplayer;
+
+	if(  halt_be_merged_to.is_bound()  &&  halt_be_merged_to->get_owner() != psplayer  &&  player_t::check_owner(halt_be_merged_to->get_owner(), player)  ) {
+		// check funds
+		sint64 const workcost = -welt->scale_with_month_length(halt_be_merged_to->calc_maintenance() * welt->get_settings().cst_make_public_months);
+		if(  giveaway  &&  !player->can_afford(workcost)  ) {
+			return NOTICE_INSUFFICIENT_FUNDS;
+		}
+
+		// merge stop
+		halt_be_merged_from->merge_halt(player, halt_be_merged_to);
+
+		return NULL;
+	}
+
+	// nothing to do
+	return NULL;
+}
 
 bool tool_show_trees_t::init( player_t * )
 {
