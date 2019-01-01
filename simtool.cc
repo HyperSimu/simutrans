@@ -6200,7 +6200,6 @@ bool tool_daynight_level_t::init( player_t * ) {
 }
 
 
-
 /* make all tiles of this player a public stop
  * if this player is public, make all connected tiles a public stop */
 bool tool_make_stop_public_t::init( player_t * )
