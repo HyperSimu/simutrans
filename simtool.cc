@@ -71,6 +71,7 @@
 #include "obj/field.h"
 #include "obj/label.h"
 
+#include "dataobj/koord.h"
 #include "dataobj/settings.h"
 #include "dataobj/environment.h"
 #include "dataobj/schedule.h"
@@ -157,6 +158,23 @@ char *tooltip_with_price(const char * tip, sint64 price)
 	money_to_string(tool_t::toolstr+n, (double)price/-100.0);
 	return tool_t::toolstr;
 }
+
+
+
+
+/**
+ * Creates a tooltip from tip text, money value and way/object length
+ * @author captain crunch
+ */
+char *tooltip_with_price_length(const char * tip, sint64 price, sint64 length)
+{
+	int n;
+	n = sprintf(tool_t::toolstr, translator::translate("length: %d"), length);
+	n += sprintf(tool_t::toolstr+n, ", %s: ", translator::translate(tip));
+	money_to_string(tool_t::toolstr+n, (double)price/-100.0);
+	return tool_t::toolstr;
+}
+
 
 
 
@@ -338,99 +356,67 @@ static grund_t *tool_intern_koord_to_weg_grund(player_t *player, karte_t *welt, 
 
 
 /****************************************** now the actual tools **************************************/
-const char *tool_query_t::work( player_t *player, koord3d pos )
+const char *tool_query_t::work( player_t *, koord3d pos )
 {
 	grund_t *gr = welt->lookup(pos);
 	if(gr) {
-		DBG_MESSAGE("tool_query_t()","checking map square %s", pos.get_str());
+		// not single_info: show least important first
+		const bool reverse = !env_t::single_info  ||  is_ctrl_pressed();
 
-		if(  env_t::single_info  ) {
+		// iterate through different stages of importance
+		const uint8 max_stages = 4;
+		for(uint8 stage = 0; stage<max_stages; stage++) {
 
 			int old_count = win_get_open_count();
 
-			if(  is_ctrl_pressed()  ) {
-				// reverse order
-				for(int n=0;  n<gr->get_top();  n++  ) {
-					obj_t *obj = gr->obj_bei(n);
-					if(  obj && obj->get_typ()!=obj_t::wayobj && obj->get_typ()!=obj_t::pillar && obj->get_typ()!=obj_t::label  ) {
-						DBG_MESSAGE("tool_query_t()", "index %d", n);
-						obj->show_info();
-						// did some new window open?
-						if(old_count!=win_get_open_count()) {
-							return NULL;
+			switch (reverse ? max_stages-1-stage: stage) {
+				case 0: { // halts
+					if(  gr->get_halt().is_bound()  ) {
+						gr->get_halt()->open_info_window();
+					}
+					break;
+				}
+				case 1: // labels
+					if(  gr->get_flag(grund_t::marked)  ) {
+						label_t *lb = gr->find<label_t>();
+						if(  lb  ) {
+							lb->show_info();
+							if(  old_count < win_get_open_count()  ) {
+								return NULL;
+							}
 						}
 					}
-				}
+					break;
+				case 2: { // objects
+					convoihandle_t cnv;
+					for (size_t n = gr->get_top(); n-- != 0;) {
+						obj_t *obj = gr->obj_bei(reverse ? gr->get_top()-1-n : n);
 
-				if(  gr->get_flag(grund_t::marked)  ) {
-					label_t *lb = gr->find<label_t>();
-					if(  lb  ) {
-						lb->show_info();
-						if(  old_count!=win_get_open_count()  ) {
-							return NULL;
+						if (vehicle_t* veh = dynamic_cast<vehicle_t*>(obj)) {
+							if (veh->get_convoi()->self == cnv) {
+								continue; // do not try to open the same window twice, does not work so great with env_t::second_open_closes_win
+							}
+							cnv = veh->get_convoi()->self;
+						}
+						if(  obj && obj->get_typ()!=obj_t::wayobj && obj->get_typ()!=obj_t::pillar && obj->get_typ()!=obj_t::label  ) {
+							DBG_MESSAGE("tool_query_t()", "index %u", (unsigned)n);
+							obj->show_info();
+							// did some new window open?
+							if(env_t::single_info  &&  old_count < win_get_open_count()) {
+								return NULL;
+							}
+							old_count = win_get_open_count(); // click may have closed a window, open a new one if possible
 						}
 					}
+					break;
 				}
-
-				if(  gr->get_halt().is_bound()  ) {
-					gr->get_halt()->open_info_window();
-					if(  old_count!=win_get_open_count()  ) {
-						return NULL;
-					}
-				}
-
-			}
-			else {
-
-				// show halt and labels first ...
-				if(  gr->get_halt().is_bound()  ) {
-					gr->get_halt()->open_info_window();
-					if(  old_count!=win_get_open_count()  ) {
-						return NULL;
-					}
-				}
-				if(  gr->get_flag(grund_t::marked)  ) {
-					label_t *lb = gr->find<label_t>();
-					if(  lb  ) {
-						lb->show_info();
-						if(  old_count!=win_get_open_count()  ) {
-							return NULL;
-						}
-					}
-				}
-
-				for (size_t n = gr->get_top(); n-- != 0;) {
-					obj_t *obj = gr->obj_bei(n);
-					if(  obj && obj->get_typ()!=obj_t::wayobj && obj->get_typ()!=obj_t::pillar && obj->get_typ()!=obj_t::label  ) {
-						DBG_MESSAGE("tool_query_t()", "index %u", (unsigned)n);
-						obj->show_info();
-						// did some new window open?
-						if(old_count!=win_get_open_count()) {
-							return NULL;
-						}
-					}
-				}
+				case 3:
+				default: // ground
+					gr->open_info_window();
+					break;
 			}
 
-			// no window yet opened -> try ground info
-			gr->open_info_window();
-		}
-		else {
-			// lowest (less interesting) first
-			gr->open_info_window();
-			for(int n=0; n<gr->get_top();  n++  ) {
-				obj_t *obj = gr->obj_bei(n);
-				if(  obj && obj->get_typ()!=obj_t::wayobj && obj->get_typ()!=obj_t::pillar  ) {
-					obj->show_info();
-				}
-			}
-		}
-
-		if(gr->get_depot()  &&  gr->get_depot()->get_owner()==player) {
-			int old_count = win_get_open_count();
-			gr->get_depot()->show_info();
-			// did some new window open?
-			if(env_t::single_info  &&  old_count!=win_get_open_count()) {
+			if(  env_t::single_info  &&  old_count < win_get_open_count()  ) {
 				return NULL;
 			}
 		}
@@ -2443,7 +2429,7 @@ void tool_build_way_t::mark_tiles(  player_t *player, const koord3d &start, cons
 
 	if(  bauigel.get_count()>1  ) {
 		// Set tooltip first (no dummygrounds, if bauigel.calc_casts() is called).
-		win_set_static_tooltip( tooltip_with_price("Building costs estimates", bauigel.calc_costs() ) );
+		win_set_static_tooltip( tooltip_with_price_length("Building costs estimates", bauigel.calc_costs(), bauigel.get_count() ) );
 
 		// make dummy route from bauigel
 		for(  uint32 j=0;  j<bauigel.get_count();  j++   ) {
@@ -2677,7 +2663,7 @@ void tool_build_bridge_t::mark_tiles(  player_t *player, const koord3d &start, c
 			}
 		}
 	}
-	win_set_static_tooltip( tooltip_with_price("Building costs estimates", costs ) );
+	win_set_static_tooltip( tooltip_with_price_length("Building costs estimates", costs, koord_distance(start, pos) ) );
 }
 
 uint8 tool_build_bridge_t::is_valid_pos(  player_t *player, const koord3d &pos, const char *&error, const koord3d &start )
@@ -2924,7 +2910,7 @@ void tool_build_tunnel_t::mark_tiles(  player_t *player, const koord3d &start, c
 
 	if(  bauigel.get_count()>1  ) {
 		// Set tooltip first (no dummygrounds, if bauigel.calc_casts() is called).
-		win_set_static_tooltip( tooltip_with_price("Building costs estimates", -bauigel.calc_costs() ) );
+		win_set_static_tooltip( tooltip_with_price_length("Building costs estimates", -bauigel.calc_costs(), bauigel.get_count() ) );
 
 		// make dummy route from bauigel
 		for(  uint32 j=0;  j<bauigel.get_count();  j++  ) {
@@ -3342,8 +3328,17 @@ bool tool_build_wayobj_t::init( player_t *player )
 bool tool_build_wayobj_t::calc_route( route_t &verbindung, player_t *player, const koord3d& start, const koord3d& to )
 {
 	waytype_t waytype = wt;
-	if (waytype == any_wt) {
+	if(  waytype == any_wt  ) {
 		waytype = welt->lookup(start)->get_weg(wt)->get_waytype();
+	}
+	// special treatment for deports, since track electrication cannot "drive" into tram depot
+	if(  waytype == track_wt  ) {
+		if(  depot_t  *dp = welt->lookup(start)->get_depot()  ) {
+			waytype = dp->get_waytype();
+		}
+		else if(  depot_t  *dp = welt->lookup(to)->get_depot()  ) {
+			waytype = dp->get_waytype();
+		}
 	}
 	// get a default vehikel
 	vehicle_desc_t remover_desc( waytype, 500, vehicle_desc_t::diesel );
@@ -3435,7 +3430,7 @@ void tool_build_wayobj_t::mark_tiles( player_t* player, const koord3d &start, co
 				marked.insert( way_obj );
 			}
 		}
-		win_set_static_tooltip( tooltip_with_price("Building costs estimates", -cost_estimate ) );
+		win_set_static_tooltip( tooltip_with_price_length("Building costs estimates", -cost_estimate, verbindung.get_count() ) );
 	}
 }
 
@@ -4611,6 +4606,93 @@ const char *tool_build_station_t::work( player_t *player, koord3d pos )
 }
 
 
+
+const char *tool_rotate_building_t::work( player_t *player, koord3d pos )
+{
+	const grund_t *gr = welt->lookup(pos);
+	if(!gr) {
+		return "";
+	}
+
+	if(  gebaeude_t* gb = gr->find<gebaeude_t>()  ) {
+
+		if(  !player_t::check_owner( gb->get_owner(), player )  ) {
+			return "Das Feld gehoert\neinem anderen Spieler\n";
+		}
+
+		// check for harbour (must no rotate)
+		const building_desc_t *desc = gb->get_tile()->get_desc();
+		if(  desc->get_all_layouts() == 1  ) {
+			// non rotatable =<> finish
+			return NULL;
+		}
+		if(  desc->get_type() == building_desc_t::dock  ) {
+			// cannot roatate a harbour
+			return "Cannot rotate this building!";
+		}
+		if(  desc->get_all_layouts()==2  &&  desc->get_x()!=desc->get_y()  ) {
+			// cannot rotate an aszmmetric building with onlz two rotations
+			return "Cannot rotate this building!";
+		}
+
+		if(  gr->hat_wege()  ) {
+			// this is almost certainlz a station ...
+			if(  desc->get_all_layouts()<16  ) {
+				// either symmetrical (==2, ==8) or freight loading station, so do not rotate!
+				return "Cannot rotate this building!";
+			}
+			int layout = gb->get_tile()->get_layout();
+			gb->set_tile( gb->get_tile()->get_desc()->get_tile( layout^8, 0, 0 ), false );
+		}
+		else {
+			// single and multitile buildings from here, include factorieh holes etc.
+			bool rotate180 = desc->get_x() != desc->get_y();
+
+			if(  desc->get_x() != desc->get_y()  &&  desc->get_all_layouts()==2  ) {
+				// asymmetrical with onlz one rotation so do not rotate!
+				return "Cannot rotate this building!";
+			}
+
+			gb = gb->get_first_tile();
+			uint8 layout = gb->get_tile()->get_layout();
+			uint8 newlayout = (layout+1+rotate180) % desc->get_all_layouts();
+
+			// first test if all tiles are present (check for holes)
+			koord k;
+			for(k.x=0; k.x<desc->get_x(layout); k.x++) {
+				for(k.y=0; k.y<desc->get_y(layout); k.y++) {
+					grund_t *gr = welt->lookup( gb->get_pos()+k );
+					if(  !gr  ) {
+						return "Cannot rotate this building!";
+					}
+					const building_tile_desc_t *tile = desc->get_tile(newlayout, k.x, k.y);
+					gebaeude_t *gbt = gr->find<gebaeude_t>();
+					if(  tile==NULL  &&  gbt  ) {
+						return "Cannot rotate this building!";
+					}
+					if(  tile  &&  gbt==NULL  ) {
+						return "Cannot rotate this building!";
+					}
+				}
+			}
+			// ok, we can roate it
+			for(k.x=0; k.x<desc->get_x(layout); k.x++) {
+				for(k.y=0; k.y<desc->get_y(layout); k.y++) {
+					grund_t *gr = welt->lookup( gb->get_pos()+k );
+					// there could be still holes, so the if is needed
+					if(  gebaeude_t *gb = gr->find<gebaeude_t>()  ) {
+						const building_tile_desc_t *tile = desc->get_tile(newlayout, k.x, k.y);
+						gb->set_tile( tile, false );
+					}
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
+
+
 char const* tool_build_roadsign_t::get_tooltip(player_t const*) const
 {
 	const roadsign_desc_t * desc = roadsign_t::find_desc(default_param);
@@ -4674,7 +4756,10 @@ const char* tool_build_roadsign_t::check_pos_intern(player_t *player, koord3d po
 			return error;
 		}
 
-		const bool two_way = desc->is_single_way()  ||  desc->is_signal() ||  desc->is_pre_signal();
+		const bool two_way = desc->is_single_way() ||
+                        desc->is_signal() ||
+                        desc->is_pre_signal() ||
+                        desc->is_priority_signal();
 
 		if(!(desc->is_traffic_light() || two_way)  ||  (two_way  &&  ribi_t::is_twoway(dir))  ||  (desc->is_traffic_light()  &&  ribi_t::is_threeway(dir))) {
 			roadsign_t* rs;
@@ -4858,7 +4943,7 @@ void tool_build_roadsign_t::mark_tiles( player_t *player, const koord3d &start, 
 		}
 	}
 	delete dummy_rs;
-	win_set_static_tooltip( tooltip_with_price("Building costs estimates", cost ) );
+	win_set_static_tooltip( tooltip_with_price_length("Building costs estimates", cost, route.get_count() ) );
 }
 
 const char *tool_build_roadsign_t::do_work( player_t *player, const koord3d &start, const koord3d &end)
@@ -4956,7 +5041,10 @@ const char *tool_build_roadsign_t::place_sign_intern( player_t *player, grund_t*
 		}
 		ribi_t::ribi dir = weg->get_ribi_unmasked();
 
-		const bool two_way = desc->is_single_way()  ||  desc->is_signal() ||  desc->is_pre_signal();
+		const bool two_way = desc->is_single_way() ||
+                        desc->is_signal() ||
+                        desc->is_pre_signal() ||
+                        desc->is_priority_signal();
 
 		if(!(desc->is_traffic_light() || two_way)  ||  (two_way  &&  ribi_t::is_twoway(dir))  ||  (desc->is_traffic_light()  &&  ribi_t::is_threeway(dir))) {
 			roadsign_t* rs;
@@ -5698,6 +5786,7 @@ DBG_MESSAGE("tool_headquarter()", "building headquarters at (%d,%d)", pos.x, pos
 											if(  gb  &&  gb->get_owner() == player  &&  prev_desc == gb->get_tile()->get_desc()  ) {
 												player_t::add_maintenance( player, -prev_desc->get_maintenance(welt), prev_desc->get_finance_waytype() );
 												gb->set_tile( tile, true );
+												gb->calc_image();
 												player_t::add_maintenance( player, desc->get_maintenance(welt), desc->get_finance_waytype() );
 											}
 										}
@@ -5778,9 +5867,9 @@ const char *tool_lock_game_t::work( player_t *, koord3d )
 	if(  !welt->get_public_player()->is_locked() ) {
 		return "In order to lock the game, you have to protect the public player by password!";
 	}
-	welt->get_settings().set_allow_player_change(false);
 	destroy_all_win( true );
 	welt->switch_active_player( 0, true );
+	welt->get_settings().set_allow_player_change(false);
 	welt->set_tool( general_tool[TOOL_QUERY], welt->get_player(0) );
 	return NULL;
 }
@@ -6280,6 +6369,7 @@ const char *tool_make_stop_public_t::work( player_t *player, koord3d p )
 	return NULL;
 }
 
+
 /* merge stop */
 image_id tool_merge_stop_t::get_marker_image()
 {
@@ -6394,6 +6484,7 @@ const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_po
 	// nothing to do
 	return NULL;
 }
+
 
 bool tool_show_trees_t::init( player_t * )
 {

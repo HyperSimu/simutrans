@@ -383,8 +383,6 @@ public:
 	*/
 	uint32 get_cargo_weight() const;
 
-	const char * get_cargo_name() const;
-
 	/**
 	* get the type of cargo this vehicle can transport
 	*/
@@ -551,6 +549,7 @@ protected:
 
 	bool is_signal_clear(uint16 start_index, sint32 &restart_speed);
 	bool is_pre_signal_clear(signal_t *sig, uint16 start_index, sint32 &restart_speed);
+ bool is_priority_signal_clear(signal_t *sig, uint16 start_index, sint32 &restart_speed);
 	bool is_longblock_signal_clear(signal_t *sig, uint16 start_index, sint32 &restart_speed);
 	bool is_choose_signal_clear(signal_t *sig, uint16 start_index, sint32 &restart_speed);
 

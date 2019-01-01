@@ -82,15 +82,11 @@ display_set_clip_wh(x, y, w, h);
 display_set_clip_wh(p_cr.x, p_cr.y, p_cr.w, p_cr.h); \
 }
 
-
-/*
- * Hajo: mapping table for special-colors (AI player colors)
- * to actual output format - all day mode
- * 16 sets of 16 colors
+/**
+ *
  */
-extern PIXVAL specialcolormap_all_day[256];
-
-#define color_idx_to_rgb(idx) (specialcolormap_all_day[(idx)&0x00FF])
+PIXVAL color_idx_to_rgb(PIXVAL idx);
+PIXVAL color_rgb_to_idx(PIXVAL color);
 
 /*
  * Get 24bit RGB888 colour from an index of the old 8bit palette
@@ -150,11 +146,9 @@ void register_image(class image_t *);
 void display_free_all_images_above( image_id above );
 
 // unzoomed offsets
-//void display_set_base_image_offset( unsigned image, KOORD_VAL xoff, KOORD_VAL yoff );
 void display_get_base_image_offset( image_id image, KOORD_VAL *xoff, KOORD_VAL *yoff, KOORD_VAL *xw, KOORD_VAL *yw );
 // zoomed offsets
 void display_get_image_offset( image_id image, KOORD_VAL *xoff, KOORD_VAL *yoff, KOORD_VAL *xw, KOORD_VAL *yw );
-void display_get_base_image_offset( image_id image, KOORD_VAL *xoff, KOORD_VAL *yoff, KOORD_VAL *xw, KOORD_VAL *yw );
 void display_mark_img_dirty( image_id image, KOORD_VAL x, KOORD_VAL y );
 
 void mark_rect_dirty_wc(KOORD_VAL x1, KOORD_VAL y1, KOORD_VAL x2, KOORD_VAL y2); // clips to screen only
@@ -168,10 +162,6 @@ void      display_set_actual_width(KOORD_VAL);
 
 // force a certain size on a image (for rescaling tool images)
 void display_fit_img_to_width( const image_id n, sint16 new_w );
-
-
-int display_get_light();
-void display_set_light(int new_light_level);
 
 void display_day_night_shift(int night);
 
@@ -321,10 +311,10 @@ utf32 get_prev_char_with_metrics(const char* &text, const char *const text_start
 
 /*
  * returns the index of the last character that would fit within the width
- * If an eclipse len is given, it will only return the last character up to this len if the full length cannot be fitted
+ * If an ellipsis len is given, it will only return the last character up to this len if the full length cannot be fitted
  * @returns index of next character. if text[index]==0 the whole string fits
  */
-size_t display_fit_proportional( const char *text, scr_coord_val max_width, scr_coord_val eclipse_width=0 );
+size_t display_fit_proportional( const char *text, scr_coord_val max_width, scr_coord_val ellipsis_width=0 );
 
 /* routines for string len (macros for compatibility with old calls) */
 #define proportional_string_width(text)          display_calc_proportional_string_len_width(text, 0x7FFF)
@@ -347,11 +337,11 @@ int display_text_proportional_len_clip_rgb(KOORD_VAL x, KOORD_VAL y, const char*
 
 
 /*
- * Display a string that if abbreviated by the (language specific) ellipse character if too wide
+ * Display a string that if abbreviated by the (language specific) ellipsis character if too wide
  * If enough space is given, it just display the full string
  * @returns screen_width
  */
-KOORD_VAL display_proportional_ellipse_rgb( scr_rect r, const char *text, int align, const PIXVAL color, const bool dirty );
+KOORD_VAL display_proportional_ellipsis_rgb( scr_rect r, const char *text, int align, const PIXVAL color, const bool dirty );
 
 void display_ddd_proportional(KOORD_VAL xpos, KOORD_VAL ypos, KOORD_VAL width, KOORD_VAL hgt, FLAGGED_PIXVAL ddd_farbe, FLAGGED_PIXVAL text_farbe, const char *text, int dirty);
 

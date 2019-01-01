@@ -23,10 +23,10 @@ void scenario_info_t::update_dynamic_texts(gui_flowtext_t &flow, dynamic_string 
 
 uint16 scenario_info_t::get_tab_index(const char* which)
 {
-	const char *shorts[] = { "info", "goal", "rules", "result", "about" };
+	const char *shorts[] = { "info", "goal", "rules", "result", "about", "debug" };
 	for (uint i = 0; i<lengthof(shorts); i++) {
 		if (strcmp(which, shorts[i]) == 0) {
-			return i;
+			return i+1 < lengthof(shorts) ? i : tabs.get_count() - 1;
 		}
 	}
 	return 0;
@@ -179,4 +179,18 @@ void scenario_info_t::open_tab(const char* which)
 	tabs.set_active_tab_index(get_tab_index(which));
 	resize(scr_coord(0,0));
 	set_dirty();
+}
+
+
+void scenario_info_t::rdwr( loadsave_t *file )
+{
+	scr_size sz = get_windowsize();
+	sz.rdwr( file );
+	sint32 ti = tabs.get_active_tab_index();
+	file->rdwr_long( ti );
+	if(  file->is_loading()  ) {
+		set_windowsize( sz );
+		tabs.set_active_tab_index( ti );
+		resize(scr_coord(0,0));
+	}
 }

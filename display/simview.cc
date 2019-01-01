@@ -24,6 +24,8 @@
 #include "../obj/zeiger.h"
 #include "../utils/simrandom.h"
 
+uint16 win_get_statusbar_height(); // simwin.h
+
 main_view_t::main_view_t(karte_t *welt)
 {
 	this->welt = welt;
@@ -101,7 +103,7 @@ void main_view_t::display(bool force_dirty)
 	const sint16 menu_height = env_t::iconsize.h;
 	const sint16 IMG_SIZE = get_tile_raster_width();
 
-	const sint16 disp_height = display_get_height() - 15 - (!ticker::empty() ? TICKER_HEIGHT : 0);
+	const sint16 disp_height = display_get_height() - win_get_statusbar_height() - (!ticker::empty() ? TICKER_HEIGHT : 0);
 	display_set_clip_wh( 0, menu_height, disp_width, disp_height-menu_height );
 
 	// redraw everything?
@@ -162,8 +164,26 @@ void main_view_t::display(bool force_dirty)
 	const sint8 hmax_ground = (grund_t::underground_mode==grund_t::ugm_level) ? grund_t::underground_level : 127;
 
 	// lower limit for y: display correctly water/outside graphics at upper border of screen
-	int y_min = (-const_y_off + 4*tile_raster_scale_y( min(hmax_ground, welt->get_groundwater())*TILE_HEIGHT_STEP, IMG_SIZE )
+	int y_min = (-const_y_off + 4*tile_raster_scale_y( min(hmax_ground, welt->min_height)*TILE_HEIGHT_STEP, IMG_SIZE )
 					+ 4*(menu_height-IMG_SIZE)-IMG_SIZE/2-1) / IMG_SIZE;
+
+	// prepare view
+	rect_t const world_rect(koord(0, 0), welt->get_size());
+
+	koord const estimated_min(((y_min+(-2-((y_min+dpy_width) & 1))) >> 1) + i_off,
+		((y_min-(disp_width - const_x_off) / (IMG_SIZE/2) - 1) >> 1) + j_off);
+
+	sint16 const worst_case_mountain_extra = (welt->max_height - welt->min_height) / 2;
+	koord const estimated_max((((dpy_height+4*4)+(disp_width - const_x_off) / (IMG_SIZE/2) - 1) >> 1) + i_off + worst_case_mountain_extra,
+		(((dpy_height+4*4)-(-2-(((dpy_height+4*4)+dpy_width) & 1))) >> 1) + j_off + worst_case_mountain_extra);
+
+	rect_t view_rect(estimated_min, estimated_max - estimated_min + koord(1, 1));
+	view_rect.mask(world_rect);
+
+	if (view_rect != viewport->prepared_rect) {
+		welt->prepare_tiles(view_rect, viewport->prepared_rect);
+		viewport->prepared_rect = view_rect;
+	}
 
 #ifdef MULTI_THREAD
 	if(  can_multithreading  ) {
@@ -291,11 +311,26 @@ void main_view_t::display(bool force_dirty)
 
 	if(welt) {
 		// show players income/cost messages
-		for(int x=0; x<MAX_PLAYER_COUNT; x++) {
-			if(  welt->get_player(x)  ) {
-				welt->get_player(x)->display_messages();
-			}
+		switch (env_t::show_money_message) {
+
+			case 0:
+				// show messages of all players
+				for(int x=0; x<MAX_PLAYER_COUNT; x++) {
+					if(  welt->get_player(x)  ) {
+						welt->get_player(x)->display_messages();
+					}
+				}
+				break;
+			
+			case 1:
+				// show message of active player
+				int x = welt->get_active_player_nr();
+				if(  welt->get_player(x)  ) {
+					welt->get_player(x)->display_messages();
+				}
+				break;
 		}
+
 	}
 
 	assert( rs == get_random_seed() ); (void)rs;
@@ -303,6 +338,11 @@ void main_view_t::display(bool force_dirty)
 #else
 	(void)force_dirty;
 #endif
+}
+
+void main_view_t::clear_prepared() const
+{
+	viewport->prepared_rect.discard_area();
 }
 
 
@@ -384,7 +424,7 @@ void main_view_t::display_region( koord lt, koord wh, sint16 y_min, sint16 y_max
 					// check if outside visible
 					outside_visible = true;
 					if(  env_t::draw_outside_tile  ) {
-						const sint16 yypos = ypos - tile_raster_scale_y( welt->get_groundwater() * TILE_HEIGHT_STEP, IMG_SIZE );
+						const sint16 yypos = ypos - tile_raster_scale_y( welt->min_height * TILE_HEIGHT_STEP, IMG_SIZE );
 						display_normal( ground_desc_t::outside->get_image(0), xpos, yypos, 0, true, false  CLIP_NUM_PAR);
 					}
 				}

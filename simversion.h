@@ -11,18 +11,18 @@
 #define SIM_BUILD_RELEASE           2
 
 #define SIM_VERSION_MAJOR 120
-#define SIM_VERSION_MINOR   2
-#define SIM_VERSION_PATCH   3
+#define SIM_VERSION_MINOR   4
+#define SIM_VERSION_PATCH   1
 #define SIM_VERSION_BUILD SIM_BUILD_NIGHTLY
 
 // Beware: SAVEGAME minor is often ahead of version minor when there were patches.
 // ==> These have no direct connection at all!
-#define SIM_SAVE_MINOR      5
-#define SIM_SERVER_MINOR    6
+#define SIM_SAVE_MINOR      7
+#define SIM_SERVER_MINOR    7
 // NOTE: increment before next release to enable save/load of new features
 
-#define MAKEOBJ_VERSION "60.0"
-// Transparency and new factories
+#define MAKEOBJ_VERSION "60.2"
+// new factory locations and provisio
 
 #ifndef QUOTEME
 #	define QUOTEME_(x) #x
@@ -76,5 +76,12 @@
 
 /* Relative URL of the list function on server */
 #define ANNOUNCE_LIST_URL "/list?format=csv"
+
+/* url for obtaining the external IP for easz servers */
+#define QUERY_ADDR_IP "simutrans-forum.de:80"
+#define QUERY_ADDR_IPv4_ONLY "ipv4.simutrans-forum.de:80"
+
+/* Relative URL of the IP function on server */
+#define QUERY_ADDR_URL "/get_IP.php"
 
 #endif

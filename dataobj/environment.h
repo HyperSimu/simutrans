@@ -25,7 +25,7 @@ class env_t
 {
 public:
 	/// points to the current simutrans data directory
-	static char program_dir[1024];
+	static char program_dir[PATH_MAX];
 
 	/// points to the current user directory for loading and saving
 	static const char *user_dir;
@@ -95,6 +95,8 @@ public:
 	static int server_port;
 	/// DNS name or IP address clients should use to connect to server
 	static std::string server_dns;
+	/// second DNS name or more liekly IP address (for a dualstack machine) to connect to our server
+	static std::string server_alt_dns;
 	/// Name of server for display on list server
 	static std::string server_name;
 	/// Comments about server for display on list server
@@ -284,6 +286,8 @@ public:
 	/// color used for cursor overlay blending
 	static uint32 cursor_overlay_color_rgb;
 	static PIXVAL cursor_overlay_color;
+
+	static sint8 show_money_message; 
 
 	/// color used for solid background draw
 	static uint32 background_color_rgb;

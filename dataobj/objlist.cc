@@ -765,6 +765,7 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 				// some old offsets will be converted to new ones
 				case obj_t::old_fussgaenger:
 					typ = obj_t::pedestrian;
+					/* FALLTHROUGH */
 				case obj_t::pedestrian:
 				{
 					pedestrian_t* const pedestrian = new pedestrian_t(file);
@@ -782,6 +783,7 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 
 				case obj_t::old_verkehr:
 					typ = obj_t::road_user;
+					/* FALLTHROUGH */
 				case obj_t::road_user:
 				{
 					private_car_t* const car = new private_car_t(file);
@@ -798,11 +800,13 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 
 				case obj_t::old_monoraildepot:
 					typ = obj_t::monoraildepot;
+					/* FALLTHROUGH */
 				case obj_t::monoraildepot:
 					new_obj = new monoraildepot_t(file);
 					break;
 				case obj_t::old_tramdepot:
 					typ = obj_t::tramdepot;
+					/* FALLTHROUGH */
 				case obj_t::tramdepot:
 					new_obj = new tramdepot_t(file);
 					break;
@@ -814,6 +818,7 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 					break;
 				case obj_t::old_airdepot:
 					typ = obj_t::airdepot;
+					/* FALLTHROUGH */
 				case obj_t::airdepot:
 					new_obj = new airdepot_t(file);
 					break;
@@ -851,6 +856,7 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 				// check for pillars
 				case obj_t::old_pillar:
 					typ = obj_t::pillar;
+					/* FALLTHROUGH */
 				case obj_t::pillar:
 				{
 					pillar_t *p = new pillar_t(file);
@@ -932,6 +938,7 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 
 				case obj_t::old_roadsign:
 					typ = obj_t::roadsign;
+					/* FALLTHROUGH */
 				case obj_t::roadsign:
 				{
 					roadsign_t *rs = new roadsign_t(file);
@@ -1033,27 +1040,6 @@ void objlist_t::rdwr(loadsave_t *file, koord3d current_pos)
 				file->wr_obj_id(-1);
 			}
 		}
-	}
-}
-
-
-/* Dumps a short info about the things on this tile
- *  @author prissi
- */
-void objlist_t::dump() const
-{
-	if(capacity==0) {
-//		DBG_MESSAGE("objlist_t::dump()","empty");
-		return;
-	}
-	else if(capacity==1) {
-		DBG_MESSAGE("objlist_t::dump()","one object \'%s\' owned by sp %p", obj.one->get_name(), obj.one->get_owner() );
-		return;
-	}
-
-	DBG_MESSAGE("objlist_t::dump()","%i objects", top );
-	for(uint8 n=0; n<top; n++) {
-		DBG_MESSAGE( obj.some[n]->get_name(), "at %i owned by sp %p", n, obj.some[n]->get_owner() );
 	}
 }
 

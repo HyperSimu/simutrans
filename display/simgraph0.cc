@@ -17,12 +17,15 @@ KOORD_VAL tile_raster_width = 16; // zoomed
 KOORD_VAL base_tile_raster_width = 16; // original
 
 
-/*
- * Hajo: mapping table for special-colors (AI player colors)
- * to actual output format - all day mode
- * 16 sets of 16 colors
- */
-PIXVAL specialcolormap_all_day[256];
+PIXVAL color_idx_to_rgb(PIXVAL idx)
+{
+	return idx;
+}
+
+PIXVAL color_rgb_to_idx(PIXVAL color)
+{
+	return color;
+}
 
 
 uint32 get_color_rgb(uint8)
@@ -92,15 +95,6 @@ void display_set_actual_width(KOORD_VAL)
 {
 }
 
-int display_get_light()
-{
-	return 0;
-}
-
-void display_set_light(int)
-{
-}
-
 void display_day_night_shift(int)
 {
 }
@@ -139,12 +133,6 @@ void display_get_base_image_offset(image_id image, KOORD_VAL *xoff, KOORD_VAL *y
 		*yw   = 0;
 	}
 }
-
-/*
-void display_set_base_image_offset(unsigned, KOORD_VAL, KOORD_VAL)
-{
-}
-*/
 
 clip_dimension display_get_clip_wh(CLIP_NUM_DEF_NOUSE0)
 {
@@ -427,7 +415,7 @@ void display_img_aligned( const image_id, scr_rect, int, int )
 {
 }
 
-KOORD_VAL display_proportional_ellipse_rgb( scr_rect, const char *, int, PIXVAL, bool)
+KOORD_VAL display_proportional_ellipsis_rgb( scr_rect, const char *, int, PIXVAL, bool)
 {
 	return 0;
 }

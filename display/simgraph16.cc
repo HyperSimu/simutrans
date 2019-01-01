@@ -247,6 +247,7 @@ int large_font_total_height = 11;
 
 #define RGBMAPSIZE (0x8000+LIGHT_COUNT+MAX_PLAYER_COUNT)
 
+
 /*
  * Hajo: mapping tables for RGB 555 to actual output format
  * plus the special (player, day&night) colors appended
@@ -721,6 +722,24 @@ uint32 get_color_rgb(uint8 idx)
 	return 0;
 }
 
+/**
+ * Convert indexed colors to rgb and back
+ */
+PIXVAL color_idx_to_rgb(PIXVAL idx)
+{
+	return (specialcolormap_all_day[(idx)&0x00FF]);
+}
+
+PIXVAL color_rgb_to_idx(PIXVAL color)
+{
+	for(PIXVAL i=0; i<=0xff; i++) {
+		if (specialcolormap_all_day[i] == color) {
+			return i;
+		}
+	}
+	return 0;
+}
+
 
 /*
  * Convert env_t colours from RGB888 to the system format
@@ -981,7 +1000,7 @@ static inline void mark_tile_dirty(const int x, const int y)
 #if 0
 	assert(bit / 8 < tile_buffer_length);
 #endif
-	((uint8*)tile_dirty)[bit >> 3] |= 1 << (bit & 7);
+	tile_dirty[bit >> 5] |= 1 << (bit & 31);
 }
 
 
@@ -1012,7 +1031,7 @@ static void mark_rect_dirty_nc(KOORD_VAL x1, KOORD_VAL y1, KOORD_VAL x2, KOORD_V
 		int bit = y1 * tile_buffer_per_line + x1;
 		const int end = bit + x2 - x1;
 		do {
-			((uint8*)tile_dirty)[bit >> 3] |= 1 << (bit & 7);
+			tile_dirty[bit >> 5] |= 1 << (bit & 31);
 		} while(  ++bit <= end  );
 	}
 }
@@ -1053,11 +1072,11 @@ void mark_rect_dirty_clip(KOORD_VAL x1, KOORD_VAL y1, KOORD_VAL x2, KOORD_VAL y2
 		if(  y1 < CR.clip_rect.y  ) {
 			y1 = CR.clip_rect.y;
 		}
-		if(  x2 > CR.clip_rect.xx  ) {
-			x2 = CR.clip_rect.xx ;
+		if(  x2 >= CR.clip_rect.xx  ) {
+			x2 = CR.clip_rect.xx-1;
 		}
-		if(  y2 > CR.clip_rect.yy  ) {
-			y2 = CR.clip_rect.yy;
+		if(  y2 >= CR.clip_rect.yy  ) {
+			y2 = CR.clip_rect.yy-1;
 		}
 		mark_rect_dirty_nc( x1, y1, x2, y2 );
 	}
@@ -1892,16 +1911,6 @@ void display_fit_img_to_width( const image_id n, sint16 new_w )
 }
 
 
-/**
- * Retrieve brightness setting
- * @author Hj. Malthaner
- */
-int display_get_light()
-{
-	return light_level;
-}
-
-
 /* Tomas variant */
 static void calc_base_pal_from_night_shift(const int night)
 {
@@ -2045,18 +2054,6 @@ static void calc_base_pal_from_night_shift(const int night)
 	}
 
 	// convert to RGB xxx
-	recode();
-}
-
-
-/**
- * Set brightness setting
- * @author Hj. Malthaner
- */
-void display_set_light(int new_light_level)
-{
-	light_level = new_light_level;
-	calc_base_pal_from_night_shift(night_shift);
 	recode();
 }
 
@@ -2221,32 +2218,6 @@ void display_get_base_image_offset(image_id image, KOORD_VAL *xoff, KOORD_VAL *y
 		*yw   = images[image].base_h;
 	}
 }
-
-/*
-// prissi: changes the offset of an image
-// we need it this complex, because the actual x-offset is coded into the image
-void display_set_base_image_offset(unsigned image, KOORD_VAL xoff, KOORD_VAL yoff)
-{
-	if(image >= anz_images) {
-		fprintf(stderr, "Warning: display_set_base_image_offset(): illegal image=%d\n", image);
-		return;
-	}
-
-	// only move images once
-	if(  images[image].recode_flags & FLAG_POSITION_CHANGED  ) {
-		fprintf(stderr, "Warning: display_set_base_image_offset(): image=%d was already moved!\n", image);
-		return;
-	}
-	images[image].recode_flags |= FLAG_POSITION_CHANGED;
-
-	assert(images[image].base_h > 0);
-	assert(images[image].base_w > 0);
-
-	// avoid overflow
-	images[image].base_x += xoff;
-	images[image].base_y += yoff;
-}
-*/
 
 // ------------------ display all kind of images from here on ------------------------------
 
@@ -2507,7 +2478,7 @@ static void display_img_nc(KOORD_VAL h, const KOORD_VAL xp, const KOORD_VAL yp, 
 #ifdef SIM_BIG_ENDIAN
 					// low level c++ without any unrolling
 					while(  runlen--  ) {
-						*sp++ = *p++;
+						*p++ = *sp++;
 					}
 #else
 					// trying to merge reads and writes
@@ -4167,10 +4138,11 @@ uint16 display_load_font(const char* fname)
 	font_t fnt;
 
 	if(  fname == NULL  ) {
-		dbg->fatal( "display_load_font", "NULL filename" );
+		dbg->error( "display_load_font", "NULL filename" );
+		return 0;
 	}
 	// skip reloading if already in memory, if bdf font
-	if(  strcmp( large_font.fname, fname ) == 0  &&  strstr(fname,".bdf")  ) {
+	if(  large_font.num_chars>0  &&  strcmp( large_font.fname, fname ) == 0  ) {
 		return large_font.num_chars;
 	}
 
@@ -4275,10 +4247,10 @@ bool has_character( utf16 char_code )
 
 /*
  * returns the index of the last character that would fit within the width
- * If an eclipse len is given, it will only return the last character up to this len if the full length cannot be fitted
+ * If an ellipsis len is given, it will only return the last character up to this len if the full length cannot be fitted
  * @returns index of next character. if text[index]==0 the whole string fits
  */
-size_t display_fit_proportional( const char *text, scr_coord_val max_width, scr_coord_val eclipse_width )
+size_t display_fit_proportional( const char *text, scr_coord_val max_width, scr_coord_val ellipsis_width )
 {
 	size_t max_idx = 0;
 
@@ -4287,14 +4259,14 @@ size_t display_fit_proportional( const char *text, scr_coord_val max_width, scr_
 	scr_coord_val current_offset = 0;
 
 	const char *tmp_text = text;
-	while(  get_next_char_with_metrics(tmp_text, byte_length, pixel_width)  &&  max_width > (current_offset+eclipse_width+pixel_width)  ) {
+	while(  get_next_char_with_metrics(tmp_text, byte_length, pixel_width)  &&  max_width > (current_offset+ellipsis_width+pixel_width)  ) {
 		current_offset += pixel_width;
 		max_idx += byte_length;
 	}
-	size_t eclipse_idx = max_idx;
+	size_t ellipsis_idx = max_idx;
 
 	// now check if the text would fit completely
-	if(  eclipse_width  &&  pixel_width > 0  ) {
+	if(  ellipsis_width  &&  pixel_width > 0  ) {
 		// only when while above failed because of exceeding length
 		current_offset += pixel_width;
 		max_idx += byte_length;
@@ -4308,7 +4280,7 @@ size_t display_fit_proportional( const char *text, scr_coord_val max_width, scr_
 			return max_idx+byte_length;
 		}
 	}
-	return eclipse_idx;
+	return ellipsis_idx;
 }
 
 
@@ -4539,7 +4511,7 @@ int display_text_proportional_len_clip_rgb(KOORD_VAL x, KOORD_VAL y, const char*
 
 	if(  dirty  ) {
 		// here, because only now we know the length also for ALIGN_LEFT text
-		mark_rect_dirty_clip( x0, y, x - 1, y + 10 - 1  CLIP_NUM_PAR);
+		mark_rect_dirty_clip( x0, y, x - 1, y + large_font_total_height - 1  CLIP_NUM_PAR);
 	}
 	// warning: actual len might be longer, due to clipping!
 	return x - x0;
@@ -4547,13 +4519,13 @@ int display_text_proportional_len_clip_rgb(KOORD_VAL x, KOORD_VAL y, const char*
 
 
 /*
- * Displays a string which is abbreviated by the (language specific) ellipse character if too wide
+ * Displays a string which is abbreviated by the (language specific) ellipsis character if too wide
  * If enough space is given then it just displays the full string
  * @returns screen_width
  */
-KOORD_VAL display_proportional_ellipse_rgb( scr_rect r, const char *text, int align, const PIXVAL color, const bool dirty )
+KOORD_VAL display_proportional_ellipsis_rgb( scr_rect r, const char *text, int align, const PIXVAL color, const bool dirty )
 {
-	const scr_coord_val eclipse_width = translator::get_lang()->eclipse_width;
+	const scr_coord_val ellipsis_width = translator::get_lang()->ellipsis_width;
 	const scr_coord_val max_screen_width = r.w;
 	size_t max_idx = 0;
 
@@ -4567,31 +4539,31 @@ KOORD_VAL display_proportional_ellipse_rgb( scr_rect r, const char *text, int al
 	}
 
 	const char *tmp_text = text;
-	while(  get_next_char_with_metrics(tmp_text, byte_length, pixel_width)  &&  max_screen_width > (current_offset+eclipse_width+pixel_width)  ) {
+	while(  get_next_char_with_metrics(tmp_text, byte_length, pixel_width)  &&  max_screen_width >= (current_offset+ellipsis_width+pixel_width)  ) {
 		current_offset += pixel_width;
 		max_idx += byte_length;
 	}
-	size_t max_idx_before_ellipse = max_idx;
-	scr_coord_val max_offset_before_ellipse = current_offset;
+	size_t max_idx_before_ellipsis = max_idx;
+	scr_coord_val max_offset_before_ellipsis = current_offset;
 
 	// now check if the text would fit completely
-	if(  eclipse_width  &&  pixel_width > 0  ) {
+	if(  ellipsis_width  &&  pixel_width > 0  ) {
 		// only when while above failed because of exceeding length
 		current_offset += pixel_width;
 		max_idx += byte_length;
 		// check the rest ...
-		while(  get_next_char_with_metrics(tmp_text, byte_length, pixel_width)  &&  max_screen_width > (current_offset+pixel_width)  ) {
+		while(  get_next_char_with_metrics(tmp_text, byte_length, pixel_width)  &&  max_screen_width >= (current_offset+pixel_width)  ) {
 			current_offset += pixel_width;
 			max_idx += byte_length;
 		}
 		// if it does not fit
-		if(  max_screen_width <= (current_offset+pixel_width)  ) {
+		if(  max_screen_width < (current_offset+pixel_width)  ) {
 			KOORD_VAL w = 0;
 			// since we know the length already, we try to center the text with the remaining pixels of the last character
 			if(  align & ALIGN_CENTER_H  ) {
-				w = (max_screen_width-max_offset_before_ellipse-eclipse_width)/2;
+				w = (max_screen_width-max_offset_before_ellipsis-ellipsis_width)/2;
 			}
-			w += display_text_proportional_len_clip_rgb( r.x+w, r.y, text, ALIGN_LEFT | DT_CLIP, color, dirty, max_idx_before_ellipse  CLIP_NUM_DEFAULT);
+			w += display_text_proportional_len_clip_rgb( r.x+w, r.y, text, ALIGN_LEFT | DT_CLIP, color, dirty, max_idx_before_ellipsis  CLIP_NUM_DEFAULT);
 			w += display_text_proportional_len_clip_rgb( r.x+w, r.y, translator::translate("..."), ALIGN_LEFT | DT_CLIP, color, dirty, -1  CLIP_NUM_DEFAULT);
 			return w;
 		}
@@ -5165,7 +5137,7 @@ void simgraph_init(KOORD_VAL width, KOORD_VAL height, int full_screen)
 		large_font.screen_width = NULL;
 		large_font.char_data = NULL;
 
-		if(  !display_load_font(env_t::fontname.c_str())  ) {
+		if(  !display_load_font(env_t::fontname.c_str())  &&  !display_load_font(FONT_PATH_X "prop.fnt") ) {
 			dr_fatal_notify( "No fonts found!" );
 			fprintf(stderr, "Error: No fonts found!");
 			exit(-1);
@@ -5343,17 +5315,15 @@ void display_snapshot( int x, int y, int w, int h )
 
 	char buf[80];
 
-	dr_mkdir(SCRENSHOT_PATH);
-
 	// find the first not used screenshot image
 	do {
-		sprintf(buf, SCRENSHOT_PATH_X "simscr%02d.png", number);
+		sprintf(buf, SCREENSHOT_PATH_X "simscr%02d.png", number);
 		if(access(buf, W_OK) == -1) {
-			sprintf(buf, SCRENSHOT_PATH_X "simscr%02d.bmp", number);
+			sprintf(buf, SCREENSHOT_PATH_X "simscr%02d.bmp", number);
 		}
 		number ++;
 	} while (access(buf, W_OK) != -1);
-	sprintf(buf, SCRENSHOT_PATH_X "simscr%02d.bmp", number-1);
+	sprintf(buf, SCREENSHOT_PATH_X "simscr%02d.bmp", number-1);
 
 	dr_screenshot(buf, x, y, w, h);
 }

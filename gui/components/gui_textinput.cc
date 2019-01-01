@@ -125,10 +125,12 @@ bool gui_textinput_t::infowin_event(const event_t *ev)
 						text_dirty = false;
 						call_listeners((long)1);
 					}
+					/* FALLTHROUGH */
 				case SIM_KEY_TAB:
 					// Knightly : focus is going to be lost -> reset cursor positions to select the whole text by default
 					head_cursor_pos = len;
 					tail_cursor_pos = 0;
+					/* FALLTHROUGH */
 				case SIM_KEY_ESCAPE:
 					return false;
 
@@ -386,7 +388,7 @@ bool gui_textinput_t::infowin_event(const event_t *ev)
 				}
 
 				// insert into text?
-				if (head_cursor_pos < len) {
+				if(  len>0  &&  head_cursor_pos < len  ) {
 					for(  sint64 pos=len+num_letter;  pos>=(sint64)head_cursor_pos;  pos--  ) {
 						text[pos] = text[pos-num_letter];
 					}

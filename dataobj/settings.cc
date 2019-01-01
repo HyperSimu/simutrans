@@ -61,6 +61,9 @@ settings_t::settings_t() :
 	max_ship_convoi_length = 4;
 	max_air_convoi_length = 1;
 
+	world_maximum_height = 32;
+	world_minimum_height = -12;
+
 	// default climate zones
 	set_default_climates( );
 	winter_snowline = 7;	// not mediterranean
@@ -815,6 +818,10 @@ void settings_t::rdwr(loadsave_t *file)
 			file->rdwr_byte(max_ship_convoi_length);
 			file->rdwr_byte(max_air_convoi_length);
 		}
+		if(  file->get_version() > 120006  ) {
+			file->rdwr_byte(world_maximum_height);
+			file->rdwr_byte(world_minimum_height);
+		}
 		// otherwise the default values of the last one will be used
 	}
 }
@@ -845,6 +852,13 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 		delete [] c;
 	}
 #endif
+
+	//check for fontname, must be a valid name!
+	const char *fname = contents.get_string( "fontname", env_t::fontname.c_str() );
+	if(  FILE *f=fopen(fname,"r")  ) {
+		fclose(f);
+		env_t::fontname = fname;
+	}
 
 	env_t::water_animation = contents.get_int("water_animation_ms", env_t::water_animation );
 	env_t::ground_object_probability = contents.get_int("random_grounds_probability", env_t::ground_object_probability );
@@ -919,6 +933,9 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	}
 	if(  *contents.get("server_dns")  ) {
 		env_t::server_dns = ltrim(contents.get("server_dns"));
+	}
+	if(  *contents.get("server_altdns")  ) {
+		env_t::server_alt_dns = ltrim(contents.get("server_altdns"));
 	}
 	if(  *contents.get("server_name")  ) {
 		env_t::server_name = ltrim(contents.get("server_name"));
@@ -1415,6 +1432,12 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	max_road_convoi_length = contents.get_int("max_road_convoi_length",max_road_convoi_length);
 	max_ship_convoi_length = contents.get_int("max_ship_convoi_length",max_ship_convoi_length);
 	max_air_convoi_length = contents.get_int("max_air_convoi_length",max_air_convoi_length);
+
+	world_maximum_height = contents.get_int("world_maximum_height",world_maximum_height);
+	world_minimum_height = contents.get_int("world_minimum_height",world_minimum_height);
+	if(  world_minimum_height>=world_maximum_height  ) {
+		world_minimum_height = world_maximum_height-1;
+	}
 
 	// Default pak file path
 	objfilename = ltrim(contents.get_string("pak_file_path", "" ) );

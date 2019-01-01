@@ -46,11 +46,10 @@ void tunnel_builder_t::register_desc(tunnel_desc_t *desc)
 {
 	// avoid duplicates with same name
 	if( const tunnel_desc_t *old_desc = tunnel_by_name.get(desc->get_name()) ) {
-		dbg->warning( "tunnel_builder_t::register_desc()", "Object %s was overlaid by addon!", desc->get_name() );
-		tunnel_by_name.remove(desc->get_name());
+		dbg->doubled( "tunnel", desc->get_name() );
 		tool_t::general_tool.remove( old_desc->get_builder() );
 		delete old_desc->get_builder();
-		delete old_desc;
+//		delete old_desc; becasue deleting PowerTunnel seems to corrupt memprz, and the small memory loss in not reallz worth the troubles
 	}
 	// add the tool
 	tool_build_tunnel_t *tool = new tool_build_tunnel_t();
@@ -446,18 +445,23 @@ DBG_MESSAGE("tunnel_builder_t::build()","build from (%d,%d,%d) to (%d,%d,%d) ", 
 		way_desc = way_builder_t::weg_search( wegtyp, desc->get_topspeed(), 0, type_flat );
 	}
 
-	build_tunnel_portal(player, pos, zv, desc, way_desc, cost);
+	build_tunnel_portal(player, pos, zv, desc, way_desc, cost, start != end);
 
 	ribi = ribi_type(-zv);
-	// don't move on to next tile if only one tile long
-	if(  end != start  ) {
-		pos = pos + zv;
-	}
-	// calc new back image for the ground
+
+	// move on
+	pos = pos + zv;
+
+	// calc back image to remove wall blocking tunnel portal for active underground view
 	if(grund_t::underground_mode) {
 		grund_t *gr = welt->lookup_kartenboden(pos.get_2d());
 		gr->calc_image();
 		gr->set_flag(grund_t::dirty);
+	}
+
+	if(  end == start  ) {
+		// already finished
+		return true;
 	}
 
 	// Now we build the invisible part
@@ -495,7 +499,7 @@ DBG_MESSAGE("tunnel_builder_t::build()","build from (%d,%d,%d) to (%d,%d,%d) ", 
 		}
 		else if (gr_end->ist_karten_boden()) {
 			// if end is above ground construct an exit
-			build_tunnel_portal(player, pos, -zv, desc, way_desc, cost);
+			build_tunnel_portal(player, pos, -zv, desc, way_desc, cost, true);
 			gr_end = NULL; // invalid - replaced by tunnel ground
 			// calc new back image for the ground
 			if (end!=start && grund_t::underground_mode) {
@@ -540,12 +544,15 @@ DBG_MESSAGE("tunnel_builder_t::build()","build from (%d,%d,%d) to (%d,%d,%d) ", 
 }
 
 
-void tunnel_builder_t::build_tunnel_portal(player_t *player, koord3d end, koord zv, const tunnel_desc_t *desc, const way_desc_t *way_desc, int &cost)
+void tunnel_builder_t::build_tunnel_portal(player_t *player, koord3d end, koord zv, const tunnel_desc_t *desc, const way_desc_t *way_desc, int &cost, bool connect_inside)
 {
 	grund_t *alter_boden = welt->lookup(end);
 	ribi_t::ribi ribi = 0;
 	if(desc->get_waytype()!=powerline_wt) {
-		ribi = alter_boden->get_weg_ribi_unmasked(desc->get_waytype()) | ribi_type(zv);
+		ribi = alter_boden->get_weg_ribi_unmasked(desc->get_waytype());
+	}
+	if (connect_inside) {
+		ribi |= ribi_type(zv);
 	}
 
 	tunnelboden_t *tunnel = new tunnelboden_t( end, alter_boden->get_grund_hang());

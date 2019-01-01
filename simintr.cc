@@ -37,7 +37,7 @@ static uint32 frame_time = 36*FRAME_TIME_MULTI;
 
 bool reduce_frame_time()
 {
-	if(frame_time > 25*FRAME_TIME_MULTI) {
+	if(frame_time > 10*FRAME_TIME_MULTI) {
 		frame_time -= 1;
 		if(  frame_time>150*FRAME_TIME_MULTI  ) {
 			frame_time -= 8;
@@ -45,7 +45,7 @@ bool reduce_frame_time()
 		return true;
 	}
 	else {
-		frame_time = 25*FRAME_TIME_MULTI;
+		frame_time = 10*FRAME_TIME_MULTI;
 		return false;
 	}
 }
@@ -86,13 +86,6 @@ void intr_refresh_display(bool dirty)
 }
 
 
-void interrupt_check()
-{
-	interrupt_check( "0" );
-}
-
-
-
 // debug version with caller information
 void interrupt_check(const char* caller_info)
 {
@@ -127,19 +120,12 @@ void intr_set(karte_t *welt, main_view_t *view)
 }
 
 /**
- * currently only used by the pause tool. Use with care!
  * @author Hj. Malthaner
  */
 void intr_set_last_time(uint32 time)
 {
 	last_time = time;
 }
-
-uint32 intr_get_last_time()
-{
-	return last_time;
-}
-
 
 void intr_disable()
 {
@@ -195,51 +181,26 @@ char const *tick_to_string( sint32 ticks, bool show_full )
 		// @author hsiegeln - updated to show month
 		// @author prissi - also show date if desired
 		// since seasons 0 is always summer for backward compatibility
-		char const* const season = translator::translate(seasons[welt_modell->get_season()]);
-		char const* const month_ = translator::get_month_name(month % 12);
-		switch(env_t::show_month) {
-			case env_t::DATE_FMT_GERMAN_NO_SEASON:
-				sprintf(time, "%d. %s %d %2d:%02dh", tage, month_, year, hours, minuten);
-				break;
-
+		char const* const date = translator::get_date(year, month, tage, translator::translate(seasons[welt_modell->get_season()]));
+		switch (env_t::show_month) {
+			case env_t::DATE_FMT_US:
 			case env_t::DATE_FMT_US_NO_SEASON: {
 				uint32 hours_ = hours % 12;
 				if (hours_ == 0) hours_ = 12;
-				sprintf(time, "%s %d %d %2d:%02d%s", month_, tage, year, hours_, minuten, hours < 12 ? "am" : "pm");
+				sprintf(time, "%s %2d:%02d%s", date, hours_, minuten, hours < 12 ? "am" : "pm");
 				break;
 			}
-
-			case env_t::DATE_FMT_JAPANESE_NO_SEASON:
-				sprintf(time, "%d/%s/%d %2d:%02dh", year, month_, tage, hours, minuten);
-				break;
-
-			case env_t::DATE_FMT_GERMAN:
-				sprintf(time, "%s, %d. %s %d %2d:%02dh", season, tage, month_, year, hours, minuten);
-				break;
-
-			case env_t::DATE_FMT_US: {
-				uint32 hours_ = hours % 12;
-				if (hours_ == 0) hours_ = 12;
-				sprintf(time, "%s, %s %d %d %2d:%02d%s", season, month_, tage, year, hours_, minuten, hours < 12 ? "am" : "pm");
-				break;
-			}
-
-			case env_t::DATE_FMT_JAPANESE:
-				sprintf(time, "%s, %d/%s/%d %2d:%02dh", season, year, month_, tage, hours, minuten);
-				break;
-
-			case env_t::DATE_FMT_MONTH:
-				sprintf(time, "%s, %s %d %2d:%02dh", month_, season, year, hours, minuten);
-				break;
-
 			case env_t::DATE_FMT_SEASON:
-				sprintf(time, "%s %d", season, year);
+			sprintf(time, "%s", date);
 				break;
+			default:
+				sprintf(time, "%s %2d:%02dh", date, hours, minuten);
+			break;
 		}
 	}
 	else {
 		if(  ticks == 0  ) {
-			return "now";
+			return translator::translate("now");
 		}
 
 		// suppress as much as possible, assuming this is an relative offset to the current month

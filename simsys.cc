@@ -18,6 +18,8 @@
 #include "macros.h"
 #include "simmain.h"
 #include "simsys.h"
+#include "pathes.h"
+#include "simevent.h"
 
 
 #ifdef _WIN32
@@ -30,8 +32,6 @@
 #	else
 #		include <sys\unistd.h>
 #	endif
-#   undef PATH_MAX
-#	define PATH_MAX MAX_PATH
 #	include "simdebug.h"
 #else
 #	include <limits.h>
@@ -343,7 +343,7 @@ char const *dr_query_homedir()
 		return NULL;
 	}
 
-	// Append Sumutrans folder.
+	// Append Simutrans folder.
 	char const foldername[] = "Simutrans";
 	if(lengthof(buffer) < strlen(buffer) + strlen(foldername) + 2 * strlen(PATH_SEPARATOR) + 1){
 		return NULL;
@@ -363,10 +363,6 @@ char const *dr_query_homedir()
 	// create directory and subdirectories
 	dr_mkdir(buffer);
 	strcat(buffer, PATH_SEPARATOR);
-	dr_chdir(buffer);
-	dr_mkdir("maps");
-	dr_mkdir("save");
-	dr_mkdir("screenshots");
 
 	return buffer;
 }
@@ -1028,6 +1024,28 @@ int sysmain(int const argc, char** const argv)
 	if (length != -1) {
 		buffer[length] = '\0'; /* readlink() does not NUL-terminate */
 		argv[0] = buffer;
+	} else if (strchr(argv[0], '/') == NULL) {
+		// no /proc, no '/' in argv[0] => search PATH
+		const char* path = getenv("PATH");
+		if (path != NULL) {
+			size_t flen = strlen(argv[0]);
+			for (;;) { /* for each directory in PATH */
+				size_t dlen = strcspn(path, ":");
+				if (dlen > 0 && dlen + flen + 2 < lengthof(buffer)) {
+					// buffer = dir '/' argv[0] '\0'
+					memcpy(buffer, path, dlen);
+					buffer[dlen] = '/';
+					memcpy(buffer + dlen + 1, argv[0], flen + 1);
+					if (access(buffer, X_OK) == 0) {
+						argv[0] = buffer;
+						break; /* found it! */
+					}
+				}
+				if (path[dlen] == '\0')
+					break;
+				path += dlen + 1; /* skip ':' */
+			}
+		}
 	}
 #	endif
 	// no process file system => need to parse argv[0]
