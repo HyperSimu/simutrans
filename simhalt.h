@@ -429,7 +429,7 @@ public:
 
 	void make_public_and_join( player_t *player );
 
-	void merge_halt( player_t *player, halthandle_t halt_merge_to );
+	void merge_halt( player_t *player, halthandle_t halt_merged );
 
 	vector_tpl<connection_t> const& get_pax_connections()  const { return all_links[goods_manager_t::INDEX_PAS].connections;  }
 	vector_tpl<connection_t> const& get_mail_connections() const { return all_links[goods_manager_t::INDEX_MAIL].connections; }

@@ -2357,16 +2357,9 @@ void haltestelle_t::make_public_and_join( player_t *player )
 
 
 // merge stop
-void haltestelle_t::merge_halt( player_t *player, halthandle_t halt_merge_to )
+void haltestelle_t::merge_halt( player_t *player, halthandle_t halt_merged )
 {
 	player_t *const public_owner = welt->get_public_player();
-
-/*
-	//check if already merged
-	if (  halt_merge_to->get_owner() == get_owner()  ){
-		return;
-	}
-*/
 
 	// process every tile of stop
 	slist_tpl<halthandle_t> joining;
@@ -2381,14 +2374,14 @@ void haltestelle_t::merge_halt( player_t *player, halthandle_t halt_merge_to )
 		const planquadrat_t *pl = welt->access(gr->get_pos().get_2d());
 		for(  uint8 i=0;  i < pl->get_boden_count();  i++  ) {
 			halthandle_t my_halt = pl->get_boden_bei(i)->get_halt();
-			if(  my_halt.is_bound()  &&  my_halt->get_owner()==public_owner  &&  !joining.is_contained(my_halt)  ) {
+			if(  my_halt.is_bound()  &&  !joining.is_contained(my_halt)  ) {
 				joining.append(my_halt);
 			}
 		}
 	}
 
 	// search for stops merged to
-	FOR(slist_tpl<tile_t>, const& i, halt_merge_to->get_tiles()) {
+	FOR(slist_tpl<tile_t>, const& i, halt_merged->get_tiles()) {
 		grund_t* const gr = i.grund;
 		gebaeude_t* gb = gr->find<gebaeude_t>();
 		if(  gb  ) {
@@ -2396,12 +2389,10 @@ void haltestelle_t::merge_halt( player_t *player, halthandle_t halt_merge_to )
 		}
 
 		const planquadrat_t *pl2 = welt->access(gr->get_pos().get_2d());
-		if(  pl2  ) {
-			for(  uint8 i=0;  i < pl2->get_boden_count();  i++  ) {
-				halthandle_t my_halt = pl2->get_boden_bei(i)->get_halt();
-				if(  my_halt.is_bound()  &&  my_halt->get_owner()==public_owner  &&  !joining.is_contained(my_halt)  ) {
-					joining.append(my_halt);
-				}
+		for(  uint8 i=0;  i < pl2->get_boden_count();  i++  ) {
+			halthandle_t my_halt = pl2->get_boden_bei(i)->get_halt();
+			if(  my_halt.is_bound()  &&  !joining.is_contained(my_halt)  ) {
+				joining.append(my_halt);
 			}
 		}
 	}
@@ -2450,7 +2441,7 @@ void haltestelle_t::merge_halt( player_t *player, halthandle_t halt_merge_to )
 	// tell the world of it ...
 	if(  player != public_owner  &&  env_t::networkmode  ) {
 		cbuffer_t buf;
-		buf.printf( translator::translate("%s at (%i,%i) now merged to %s at (%i,%i)."), get_name(), get_basis_pos().x, get_basis_pos().y, halt_merge_to->get_name(), halt_merge_to->get_basis_pos().x, halt_merge_to->get_basis_pos().y );
+		buf.printf( translator::translate("%s at (%i,%i) now merged to %s at (%i,%i)."), halt_merged->get_name(), halt_merged->get_basis_pos().x, halt_merged->get_basis_pos().y, get_name(), get_basis_pos().x, get_basis_pos().y );
 		welt->get_message()->add_message( buf, get_basis_pos(), message_t::ai, PLAYER_FLAG|player->get_player_nr(), IMG_EMPTY );
 	}
 
