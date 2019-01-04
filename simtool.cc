@@ -6384,7 +6384,7 @@ uint8 tool_merge_stop_t::is_valid_pos(  player_t *player, const koord3d &pos, co
 	}
 	// check halt ownership
 	halthandle_t h = haltestelle_t::get_halt(pos,player);
-	if(  h.is_bound()  &&  !player_t::check_owner( player, h->get_owner() )  ) {
+	if(  h.is_bound()  &&  player != h->get_owner()  ) {
 		error = "Das Feld gehoert\neinem anderen Spieler\n";
 		return 0;
 	}
@@ -6404,12 +6404,10 @@ void tool_merge_stop_t::mark_tiles(  player_t *player, const koord3d &start, con
 	halt_be_merged_to = haltestelle_t::get_halt(end,player);
 	sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
 	sint64 workcost = 0;
-	if ( !halt_be_merged_from->is_halt_covered( halt_be_merged_to ) )	{
+	if (  !halt_be_merged_from->is_halt_covered( halt_be_merged_to )  &&  halt_be_merged_from->get_owner() == player  &&  halt_be_merged_to->get_owner() == player )	{
 		workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
 	}
-	if(  dist>0  ) {
-		win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
-	}
+	win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
 }
 
 const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_pos, const koord3d &pos)
@@ -6431,11 +6429,10 @@ const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_po
 		return NOTICE_INSUFFICIENT_FUNDS;
 	}
 
-	player_t::book_construction_costs(player, -workcost, pos.get_2d(), ignore_wt);
-
-	if(  (  halt_be_merged_to.is_bound()  &&  halt_be_merged_to->get_owner() != psplayer  &&  player_t::check_owner(halt_be_merged_to->get_owner(), player)  )  &&
-		   (  halt_be_merged_from.is_bound()  &&  halt_be_merged_from->get_owner() != psplayer  &&  player_t::check_owner(halt_be_merged_from->get_owner(), player)  )  ) {
+	if(  halt_be_merged_to.is_bound()  &&  halt_be_merged_to->get_owner() == player  &&
+		   halt_be_merged_from.is_bound()  &&  halt_be_merged_from->get_owner() == player  ) {
 		// merge stop
+		player_t::book_construction_costs(player, -workcost, pos.get_2d(), ignore_wt);
 		halt_be_merged_to->merge_halt(player, halt_be_merged_from);
 		return NULL;
 	}
