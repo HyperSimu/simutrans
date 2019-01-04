@@ -1039,7 +1039,7 @@ void haltestelle_t::verbinde_fabriken()
 	FOR(slist_tpl<tile_t>, const& i, tiles) {
 		koord const p = i.grund->get_pos().get_2d();
 
-		int const cov = welt->get_settings().get_station_coverage();
+		uint16 const cov = welt->get_settings().get_station_coverage();
 		FOR(vector_tpl<fabrik_t*>, const fab, fabrik_t::sind_da_welche(p - koord(cov, cov), p + koord(cov, cov))) {
 			if(!fab_list.is_contained(fab)) {
 				// water factories can only connect to docks
@@ -3095,7 +3095,7 @@ bool haltestelle_t::add_grund(grund_t *gr, bool relink_factories)
 	// appends this to the ground
 	// after that, the surrounding ground will know of this station
 	bool insert_unsorted = !relink_factories;
-	int const cov = welt->get_settings().get_station_coverage();
+	uint16 const cov = welt->get_settings().get_station_coverage();
 	for (int y = -cov; y <= cov; y++) {
 		for (int x = -cov; x <= cov; x++) {
 			koord p=pos+koord(x,y);
@@ -3230,7 +3230,7 @@ bool haltestelle_t::rem_grund(grund_t *gr)
 			pl->get_kartenboden()->set_flag(grund_t::dirty);
 		}
 
-		int const cov = welt->get_settings().get_station_coverage();
+		uint16 const cov = welt->get_settings().get_station_coverage();
 		for (int y = -cov; y <= cov; y++) {
 			for (int x = -cov; x <= cov; x++) {
 				planquadrat_t *pl = welt->access( gr->get_pos().get_2d()+koord(x,y) );
@@ -3453,4 +3453,33 @@ void haltestelle_t::release_factory_links()
 		f->unlink_halt(self);
 	}
 	fab_list.clear();
+}
+
+/* check if this tile is covered by this station */
+bool haltestelle_t::is_pos_covered(const koord &pos) const
+{
+	uint16 const cov = welt->get_settings().get_station_coverage();
+	FOR(slist_tpl<tile_t>, const& i, tiles) {
+		if (  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
+			if ( koord_distance(gb->get_pos(), pos) <= cov )
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/* check if the station is covered by this */
+bool haltestelle_t::is_halt_covered(const halthandle_t &halt) const
+{
+	FOR(slist_tpl<tile_t>, const& i, halt->get_tiles()) {
+		if (  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
+			if ( is_pos_covered( gb->get_pos().get_2d() ) )
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }

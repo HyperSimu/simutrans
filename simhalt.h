@@ -812,6 +812,11 @@ public:
 	 */
 	static void init_markers();
 
+	/*
+	 * check it is in the station coverage
+	 */
+	bool is_pos_covered (const koord &pos) const;
+	bool is_halt_covered (const halthandle_t &halt) const;
 };
 
 ENUM_BITSET(haltestelle_t::stationtyp)

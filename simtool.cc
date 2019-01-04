@@ -6403,7 +6403,10 @@ void tool_merge_stop_t::mark_tiles(  player_t *player, const koord3d &start, con
 	halt_be_merged_from = haltestelle_t::get_halt(start,player);
 	halt_be_merged_to = haltestelle_t::get_halt(end,player);
 	sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
-	sint64 const workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	sint64 workcost = 0;
+	if ( !halt_be_merged_from->is_halt_covered( halt_be_merged_to ) )	{
+		workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	}
 	if(  dist>0  ) {
 		win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
 	}
@@ -6419,9 +6422,11 @@ const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_po
 	halt_be_merged_to = haltestelle_t::get_halt(pos,player);
 
 	// check funds
-	sint32 dist = 0;
-	dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
-	sint64 const workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
+	sint64 workcost = 0;
+	if ( !halt_be_merged_from->is_halt_covered( halt_be_merged_to ) )	{
+		workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	}
 	if(  giveaway  &&  !player->can_afford(workcost)  ) {
 		return NOTICE_INSUFFICIENT_FUNDS;
 	}
