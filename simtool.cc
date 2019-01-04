@@ -6433,8 +6433,8 @@ const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_po
 
 	player_t::book_construction_costs(player, -workcost, pos.get_2d(), ignore_wt);
 
-	if(  (  halt_be_merged_to.is_bound()  &&  player_t::check_owner(halt_be_merged_to->get_owner(), player)  )  &&
-		   (  halt_be_merged_from.is_bound()  &&  player_t::check_owner(halt_be_merged_from->get_owner(), player)  )  ) {
+	if(  (  halt_be_merged_to.is_bound()  &&  halt_be_merged_to->get_owner() != psplayer  &&  player_t::check_owner(halt_be_merged_to->get_owner(), player)  )  &&
+		   (  halt_be_merged_from.is_bound()  &&  halt_be_merged_from->get_owner() != psplayer  &&  player_t::check_owner(halt_be_merged_from->get_owner(), player)  )  ) {
 		// merge stop
 		halt_be_merged_to->merge_halt(player, halt_be_merged_from);
 		return NULL;
