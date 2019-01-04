@@ -6396,14 +6396,37 @@ uint8 tool_merge_stop_t::is_valid_pos(  player_t *player, const koord3d &pos, co
 	return 0;
 }
 
-const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_pos, const koord3d &pos)
+void tool_merge_stop_t::mark_tiles(  player_t *player, const koord3d &start, const koord3d &end )
 {
 	halt_be_merged_from = halthandle_t();
 	halt_be_merged_to = halthandle_t();
+	halt_be_merged_from = haltestelle_t::get_halt(start,player);
+	halt_be_merged_to = haltestelle_t::get_halt(end,player);
+	sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
+	sint64 const workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	if(  dist>0  ) {
+		win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
+	}
+}
 
-	//grund_t *gr = welt->lookup(pos);
+const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_pos, const koord3d &pos)
+{
+	player_t *const psplayer = welt->get_public_player();
+	bool const giveaway = player != psplayer;
+	halt_be_merged_from = halthandle_t();
+	halt_be_merged_to = halthandle_t();
 	halt_be_merged_from = haltestelle_t::get_halt(last_pos,player);
 	halt_be_merged_to = haltestelle_t::get_halt(pos,player);
+
+	// check funds
+	sint32 dist = 0;
+	dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
+	sint64 const workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	if(  giveaway  &&  !player->can_afford(workcost)  ) {
+		return NOTICE_INSUFFICIENT_FUNDS;
+	}
+
+	player_t::book_construction_costs(player, -workcost, pos.get_2d(), ignore_wt);
 
 	if(  (  halt_be_merged_to.is_bound()  &&  player_t::check_owner(halt_be_merged_to->get_owner(), player)  )  &&
 		   (  halt_be_merged_from.is_bound()  &&  player_t::check_owner(halt_be_merged_from->get_owner(), player)  )  ) {
@@ -6415,7 +6438,6 @@ const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_po
 	// nothing to do
 	return NULL;
 }
-
 
 bool tool_show_trees_t::init( player_t * )
 {

@@ -622,10 +622,9 @@ public:
 	tool_merge_stop_t() : two_click_tool_t(TOOL_MERGE_STOP | GENERAL_TOOL) {}
 	char const* get_tooltip(player_t const*) const OVERRIDE { return translator::translate("merge stop"); }
 	bool is_init_network_save() const OVERRIDE { return true; }
-
 private:
 	char const* do_work(player_t*, koord3d const&, koord3d const&) OVERRIDE;
-	void mark_tiles(player_t*, koord3d const&, koord3d const&) OVERRIDE {}
+	void mark_tiles(player_t*, koord3d const&, koord3d const&) OVERRIDE;
 	uint8 is_valid_pos(player_t*, koord3d const&, char const*&, koord3d const&) OVERRIDE;
 	image_id get_marker_image() OVERRIDE;
 };

@@ -224,6 +224,24 @@ koord3d haltestelle_t::get_basis_pos3d() const
 	return tiles.front().grund->get_pos();
 }
 
+/* Get center position of this station
+ * It is the avarage of all tiles' coordinate weighed by level of the building */
+koord haltestelle_t::get_center_pos() const
+{
+	koord center_pos;
+	sint32 level_sum;
+	center_pos = koord();
+	level_sum = 0;
+	FOR(slist_tpl<tile_t>, const& i, tiles) {
+		if(  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
+			sint16 lv;
+			lv = gb->get_tile()->get_desc()->get_level();
+			center_pos += gb->get_pos().get_2d() * lv;
+			level_sum += lv;
+		}
+	}
+	return center_pos/level_sum;
+}
 
 /**
  * Station factory method. Returns handles instead of pointers.

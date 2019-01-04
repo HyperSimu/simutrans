@@ -302,6 +302,9 @@ public:
 	sint64 cst_depot_ship;
 	sint64 cst_depot_air;
 
+	// cost to merge station
+	sint64 cst_multiply_merge_halt;
+	
 	// alter landscape
 	sint64 cst_buy_land;
 	sint64 cst_alter_land;

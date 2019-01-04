@@ -596,6 +596,7 @@ public:
 	koord get_init_pos() const { return init_pos; }
 	koord get_basis_pos() const;
 	koord3d get_basis_pos3d() const;
+	koord get_center_pos() const;
 
 	/* return the closest square that belongs to this halt
 	 * @author prissi
