@@ -224,23 +224,26 @@ koord3d haltestelle_t::get_basis_pos3d() const
 	return tiles.front().grund->get_pos();
 }
 
-/* Get center position of this station
+/* Calculate and set center position of this station
  * It is the avarage of all tiles' coordinate weighed by level of the building */
-koord haltestelle_t::get_center_pos() const
+void haltestelle_t::recalc_center_pos()
 {
-	koord center_pos;
+	koord cent;
 	sint32 level_sum;
-	center_pos = koord();
+	cent = koord();
 	level_sum = 0;
 	FOR(slist_tpl<tile_t>, const& i, tiles) {
 		if(  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
 			sint16 lv;
-			lv = gb->get_tile()->get_desc()->get_level();
-			center_pos += gb->get_pos().get_2d() * lv;
+			lv = gb->get_tile()->get_desc()->get_level() + 1;
+			cent += gb->get_pos().get_2d() * lv;
 			level_sum += lv;
 		}
 	}
-	return center_pos/level_sum;
+	if ( level_sum > 0 ) {
+		center_pos = cent/level_sum;
+	}
+	return;
 }
 
 /**
@@ -2611,6 +2614,7 @@ void haltestelle_t::recalc_station_type()
 		i.grund->set_halt( self );
 	}
 	recalc_status();
+	recalc_center_pos();
 }
 
 
@@ -3455,27 +3459,13 @@ void haltestelle_t::release_factory_links()
 	fab_list.clear();
 }
 
-/* check if this tile is covered by this station */
-bool haltestelle_t::is_pos_covered(const koord &pos) const
-{
-	uint16 const cov = welt->get_settings().get_station_coverage();
-	FOR(slist_tpl<tile_t>, const& i, tiles) {
-		if (  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
-			if ( koord_distance(gb->get_pos(), pos) <= cov )
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-/* check if the station is covered by this */
+/* check if the station given is covered by this station */
 bool haltestelle_t::is_halt_covered(const halthandle_t &halt) const
 {
+	uint16 const cov = welt->get_settings().get_station_coverage();
 	FOR(slist_tpl<tile_t>, const& i, halt->get_tiles()) {
 		if (  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
-			if ( is_pos_covered( gb->get_pos().get_2d() ) )
+			if ( koord_distance( gb->get_pos().get_2d(), get_next_pos( gb->get_pos().get_2d() )) <= cov )
 			{
 				return true;
 			}

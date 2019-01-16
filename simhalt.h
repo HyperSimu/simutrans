@@ -119,6 +119,7 @@ private:
 	sint32 last_loading_step;
 
 	koord init_pos;	// for halt without grounds, created during game initialisation
+	koord center_pos; // the avarage of all tiles' coordinate weighed by level of the building
 
 	/**
 	 * Handle for ourselves. Can be used like the 'this' pointer
@@ -596,8 +597,12 @@ public:
 	koord get_init_pos() const { return init_pos; }
 	koord get_basis_pos() const;
 	koord3d get_basis_pos3d() const;
-	koord get_center_pos() const;
+	
+	koord get_center_pos() const { return center_pos; }
+private:
+	void recalc_center_pos();
 
+public:
 	/* return the closest square that belongs to this halt
 	 * @author prissi
 	 */
@@ -813,9 +818,8 @@ public:
 	static void init_markers();
 
 	/*
-	 * check it is in the station coverage
+	 * check if it is in the station coverage
 	 */
-	bool is_pos_covered (const koord &pos) const;
 	bool is_halt_covered (const halthandle_t &halt) const;
 };
 
