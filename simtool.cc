@@ -6402,12 +6402,22 @@ void tool_merge_stop_t::mark_tiles(  player_t *player, const koord3d &start, con
 	halt_be_merged_to = halthandle_t();
 	halt_be_merged_from = haltestelle_t::get_halt(start,player);
 	halt_be_merged_to = haltestelle_t::get_halt(end,player);
-	sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
 	sint64 workcost = 0;
-	if (  !halt_be_merged_from->is_halt_covered( halt_be_merged_to )  &&  halt_be_merged_from->get_owner() == player  &&  halt_be_merged_to->get_owner() == player )	{
-		workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	if ( welt->get_settings().allow_merge_distant_halt ) {
+		sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
+		if (  !halt_be_merged_from->is_halt_covered( halt_be_merged_to )  &&  halt_be_merged_from->get_owner() == player  &&  halt_be_merged_to->get_owner() == player )	{
+			workcost = -welt->scale_with_month_length( (2 ^ dist) * welt->get_settings().cst_multiply_merge_halt);
+		}
+		win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
 	}
-	win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
+	else {
+		if ( halt_be_merged_from->is_halt_covered( halt_be_merged_to ) ) {
+			win_set_static_tooltip( tooltip_with_price("Building costs estimates", workcost) );
+		}
+		else {
+			win_set_static_tooltip( "Can not merge" );
+		}
+	}
 }
 
 const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_pos, const koord3d &pos)
@@ -6418,15 +6428,21 @@ const char *tool_merge_stop_t::do_work( player_t *player, const koord3d &last_po
 	halt_be_merged_to = halthandle_t();
 	halt_be_merged_from = haltestelle_t::get_halt(last_pos,player);
 	halt_be_merged_to = haltestelle_t::get_halt(pos,player);
-
-	// check funds
-	sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
 	sint64 workcost = 0;
-	if ( !halt_be_merged_from->is_halt_covered( halt_be_merged_to ) )	{
-		workcost = -welt->scale_with_month_length( dist * welt->get_settings().cst_multiply_merge_halt);
+	if ( welt->get_settings().allow_merge_distant_halt ) {
+		// check funds
+		sint32 dist = (sint32)koord_distance( halt_be_merged_from->get_center_pos(), halt_be_merged_to->get_center_pos() );
+		if ( !halt_be_merged_from->is_halt_covered( halt_be_merged_to ) )	{
+			workcost = -welt->scale_with_month_length( (2 ^ dist) * welt->get_settings().cst_multiply_merge_halt );
+		}
+		if(  giveaway  &&  !player->can_afford(workcost)  ) {
+			return NOTICE_INSUFFICIENT_FUNDS;
+		}
 	}
-	if(  giveaway  &&  !player->can_afford(workcost)  ) {
-		return NOTICE_INSUFFICIENT_FUNDS;
+	else {
+		if ( !halt_be_merged_from->is_halt_covered( halt_be_merged_to ) ) {
+			return "Too far stations!";
+		}
 	}
 
 	if(  halt_be_merged_to.is_bound()  &&  halt_be_merged_to->get_owner() == player  &&
