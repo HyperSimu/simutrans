@@ -265,21 +265,24 @@ koord haltestelle_t::get_next_pos( koord start ) const
  * It is the avarage of all tiles' coordinate weighed by level of the building */
 void haltestelle_t::recalc_basis_pos()
 {
-	koord cent;
-	sint32 level_sum;
-	cent = koord();
-	level_sum = 0;
+	sint32 centX = 0;
+	sint32 centY = 0;
+	sint32 level_sum = 0;
 	FOR(slist_tpl<tile_t>, const& i, tiles) {
 		if(  gebaeude_t* const gb = i.grund->find<gebaeude_t>()  ) {
 			sint16 lv;
 			lv = gb->get_tile()->get_desc()->get_level() + 1;
-			cent += gb->get_pos().get_2d() * lv;
+			centX += gb->get_pos().get_2d().x * lv;
+			centY += gb->get_pos().get_2d().y * lv;
 			level_sum += lv;
 		}
 	}
 
+	centX /= level_sum;
+	centY /= level_sum;
+
 	if ( level_sum > 0 ) {
-		grund_t *new_center = get_ground_closest_to( cent/level_sum );
+		grund_t *new_center = get_ground_closest_to( koord( centX, centY ) );
 		if(  new_center != tiles.front().grund  &&  new_center->get_text()==NULL  ) {
 			// move the name to new center, if there is not yet a name on it
 			new_center->set_text( tiles.front().grund->get_text() );
