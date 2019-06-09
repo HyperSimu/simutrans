@@ -14,6 +14,10 @@ class astar_node extends coord3d
 		weight   = w
 		dist     = d
 	}
+	function is_straight_move(d)
+	{
+		return d == dir ||  (previous  &&  previous.dir == d)
+	}
 }
 
 function abs(x) { return x>0 ? x : -x }
@@ -28,6 +32,13 @@ class astar
 	boundingbox = null // box containing all the targets
 
 	route       = null // route, reversed: target to start
+
+	calls_open = 0
+	calls_closed = 0
+	calls_pop = 0
+
+	cost_straight = 10
+	cost_curve    = 14
 
 	constructor()
 	{
@@ -44,11 +55,15 @@ class astar
 		route       = []
 		heap.clear()
 		targets     = []
+		calls_open = 0
+		calls_closed = 0
+		calls_pop = 0
 	}
 
 	function add_to_close(c)
 	{
 		closed_list[ coord3d_to_key(c) ] <- 1
+		calls_closed++
 	}
 
 	function test_and_close(c)
@@ -59,6 +74,7 @@ class astar
 		}
 		else {
 			closed_list[ key ] <- 1
+			calls_closed++
 			return true
 		}
 	}
@@ -74,6 +90,7 @@ class astar
 		local i = nodes.len()
 		nodes.append(c)
 		heap.insert(weight, i)
+		calls_open++
 	}
 
 	function search()
@@ -83,6 +100,7 @@ class astar
 
 		local current_node = null
 		while (!heap.is_empty()) {
+			calls_pop++
 
 			local wi = heap.pop()
 			current_node = nodes[wi.value]
@@ -111,6 +129,8 @@ class astar
 				route.append(current_node)
 			}
 		}
+
+		print("Calls: pop = " + calls_pop + ", open = " + calls_open + ", close = " + calls_closed)
 	}
 
 	function compute_bounding_box()
@@ -132,29 +152,34 @@ class astar
 	function estimate_distance(c)
 	{
 		local d = 0
+		local curved = 0
 
-		local t
-		t = boundingbox.xmin - c.x; if (t>0) d += t;
-		t = c.x - boundingbox.xmax; if (t>0) d += t;
-		t = boundingbox.ymin - c.y; if (t>0) d += t;
-		t = c.y - boundingbox.ymax; if (t>0) d += t;
+		// distance to bounding box
+		local dx = boundingbox.xmin - c.x
+		if (dx <= 0) dx = c.x - boundingbox.xmax;
+		if (dx > 0) d += dx; else dx = 0;
 
-		if (d==0) {
+		local dy = boundingbox.ymin - c.y
+		if (dy <= 0) dy = c.y - boundingbox.ymax
+		if (dy > 0) d += dy; else dy = 0;
+
+		if (d > 0) {
+			// cost to bounding box
+			return cost_straight * d + (dx*dy > 0 ? cost_curve - cost_straight : 0);
+		}
+		else {
 			local t = targets[0]
 			d = abs(t.x-c.x) + abs(t.y-c.y)
 
 			// inside bounding box
 			for(local i=1; i < targets.len(); i++) {
 				local t = targets[i]
-				d = min(d, abs(t.x-c.x) + abs(t.y-c.y) )
+				local dx = abs(t.x-c.x)
+				local dy = abs(t.y-c.y)
+				d = min(d, cost_straight * (dx+dy) + (dx*dy > 0 ? cost_curve - cost_straight : 0))
 			}
 		}
 		return d
-	}
-
-	function coord3d_to_key(c)
-	{
-		return c.x + ":" + c.y + ":" + c.z;
 	}
 }
 
@@ -234,8 +259,8 @@ class astar_builder extends astar
 			if (to) {
 				if (builder.is_allowed_step(from, to)  &&  !is_closed(to)) {
 					// estimate moving cost
-					local move = ((dir.double(d) & cnode.dir) != 0) ? /* straight */ 14 : /* curve */ 10
-					local dist   = 10*estimate_distance(to)
+					local move = cnode.is_straight_move(d)  ?  cost_straight  :  cost_curve
+					local dist   = estimate_distance(to)
 					// is there already a road?
 					if (!to.has_way(wt_road)) {
 						move += 8
@@ -253,14 +278,14 @@ class astar_builder extends astar
 					local max_len = bridger.bridge.get_max_length()
 
 					do {
-						local to = bridger.find_end(to, d, len)
+						local to = bridger.find_end(from, d, len)
 						if (to.x < 0  ||  is_closed(to)) {
 							break
 						}
 						local bridge_len = abs(from.x-to.x) + abs(from.y-to.y)
 
-						local move = bridge_len * 14 /* straight */  * 3  /*extra bridge penalty */;
-						local dist = 10*estimate_distance(to)
+						local move = bridge_len * cost_straight  * 3  /*extra bridge penalty */;
+						local dist = estimate_distance(to)
 
 						local cost   = cnode.cost + move
 						local weight = cost + dist
@@ -297,12 +322,13 @@ class astar_builder extends astar
 
 				if (route[i-1].flag == 0) {
 					err = command_x.build_way(our_player, route[i-1], route[i], way, false)
+					if (err) gui.add_message_at(our_player, "Failed to build road from  " + coord_to_string(route[i-1]) + " to " + coord_to_string(route[i]) +"\n" + err, route[i])
 				}
 				else if (route[i-1].flag == 1) {
 					err = command_x.build_bridge(our_player, route[i], route[i-1], bridger.bridge)
+					if (err) gui.add_message_at(our_player, "Failed to build bridge from  " + coord_to_string(route[i-1]) + " to " + coord_to_string(route[i]) +"\n" + err, route[i])
 				}
 				if (err) {
-					label_x.create(route[i], our_player, "<" + err + "> " + coord3d_to_string(route[i-1]) + " / " +  route[i-1].flag + " / " + route[i].flag )
 					return { err =  err }
 				}
 			}
@@ -312,4 +338,3 @@ class astar_builder extends astar
 		return { err =  "No route" }
 	}
 }
-

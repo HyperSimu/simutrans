@@ -77,8 +77,9 @@ enum magic_numbers {
 	magic_ai_options_t=magic_line_management_t+MAX_PLAYER_COUNT,
 	magic_ai_selector=magic_ai_options_t+MAX_PLAYER_COUNT,
 	magic_pwd_t=magic_ai_selector+MAX_PLAYER_COUNT,
-	// normal stuff
 	magic_jump=magic_pwd_t+MAX_PLAYER_COUNT,
+	magic_headquarter = magic_jump + MAX_PLAYER_COUNT,
+	// normal stuff
 	magic_curiositylist,
 	magic_factorylist,
 	magic_goodslist,
@@ -98,15 +99,15 @@ enum magic_numbers {
 	magic_schedule_rdwr_dummy,	// only used to save/load schedules
 	magic_line_schedule_rdwr_dummy,	// only used to save/load line schedules
 	magic_motd,
-	magic_convoi_info,
-	magic_factory_info,
+	magic_factory_info, // only used to load/save
 	magic_font,
-	magic_convoi_detail=magic_convoi_info+65536,
+	// magic numbers with big jumps between them
+	magic_convoi_info,
+	magic_convoi_detail=magic_convoi_info+65536, // unused
 	magic_halt_info=magic_convoi_detail+65536,
-	magic_halt_detail=magic_halt_info+65536,
+	magic_halt_detail=magic_halt_info+65536, // unused
 	magic_toolbar=magic_halt_detail+65536,
-	magic_info_pointer=magic_toolbar+256,
-	magic_max = magic_info_pointer+843
+	magic_max=magic_toolbar+256
 };
 
 // Holding time for auto-closing windows
@@ -117,6 +118,9 @@ void init_map_win();
 // windows with a valid id can be saved and restored
 void rdwr_all_win(loadsave_t *file);
 
+// save windowsizes in settings
+void rdwr_win_settings(loadsave_t *file);
+
 int create_win(gui_frame_t*, wintype, ptrdiff_t magic);
 int create_win(int x, int y, gui_frame_t*, wintype, ptrdiff_t magic);
 
@@ -124,8 +128,6 @@ bool check_pos_win(event_t*);
 
 bool win_is_open(gui_frame_t *ig );
 
-// returns the window on this positions
-gui_frame_t *win_get_oncoord( const scr_coord pt );
 
 scr_coord const& win_get_pos(gui_frame_t const*);
 void win_set_pos(gui_frame_t *ig, int x, int y);
@@ -163,7 +165,9 @@ void win_rotate90( sint16 new_size );
 void move_win(int win);
 
 void win_display_flush(double konto); // draw the frame and all windows
-void win_get_event(event_t*);
+
+uint16 win_get_statusbar_height();
+
 void win_poll_event(event_t*);
 
 bool win_change_zoom_factor(bool magnify);
@@ -177,6 +181,11 @@ void win_set_world(karte_t *world);
  * Forces the redraw of the world on next frame.
  */
 void win_redraw_world();
+
+/**
+ * Loads new font. Notifies gui's, world.
+ */
+void win_load_font(const char *fname, uint16 fontsize);
 
 /**
  * Sets the tooltip to display.

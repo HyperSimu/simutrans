@@ -1017,7 +1017,7 @@ bool fabrik_t::add_random_field(uint16 probability)
 				grund_t *gr = welt->lookup_kartenboden(pos.get_2d()+koord(xoff,yoff));
 				if (gr != NULL &&
 						gr->get_typ()        == grund_t::boden &&
-						gr->get_hoehe()      == pos.z &&
+						get_desc()->get_building()->is_allowed_climate(welt->get_climate(pos.get_2d()+koord(xoff,yoff))) &&
 						gr->get_grund_hang() == slope_t::flat &&
 						gr->ist_natur() &&
 						(gr->find<leitung_t>() || gr->kann_alle_obj_entfernen(NULL) == NULL)) {
@@ -1552,7 +1552,7 @@ void fabrik_t::smoke() const
 		welt->sync_way_eyecandy.add( smoke );
 	}
 	// maybe sound?
-	if(  desc->get_sound()!=NO_SOUND  &&  	welt->get_ticks()>last_sound_ms+desc->get_sound_interval_ms()  ) {
+	if(  desc->get_sound()!=NO_SOUND  &&  welt->get_ticks()>last_sound_ms+desc->get_sound_interval_ms()  ) {
 		welt->play_sound_area_clipped( get_pos().get_2d(), desc->get_sound() );
 	}
 }
@@ -2079,7 +2079,7 @@ void fabrik_t::step(uint32 delta_t)
 							cons_comp = 0;
 						}
 						else {
-						    // enough input
+							// enough input
 							cons_comp -= prod_delta;
 						}
 
@@ -2951,60 +2951,8 @@ void fabrik_t::info_prod(cbuffer_t& buf) const
 void fabrik_t::info_conn(cbuffer_t& buf) const
 {
 	buf.clear();
-	bool has_previous = false;
-	if (!lieferziele.empty()) {
-		has_previous = true;
-		buf.append(translator::translate("Abnehmer"));
-
-		FOR(vector_tpl<koord>, const& lieferziel, lieferziele) {
-			fabrik_t *fab = get_fab( lieferziel );
-			if(fab) {
-				if(  is_active_lieferziel(lieferziel)  ) {
-					buf.printf("\n      %s (%d,%d)", fab->get_name(), lieferziel.x, lieferziel.y);
-				}
-				else {
-					buf.printf("\n   %s (%d,%d)", fab->get_name(), lieferziel.x, lieferziel.y);
-				}
-			}
-		}
-	}
-
-	if (!suppliers.empty()) {
-		if(  has_previous  ) {
-			buf.append("\n\n");
-		}
-		has_previous = true;
-		buf.append(translator::translate("Suppliers"));
-
-		FOR(vector_tpl<koord>, const& supplier, suppliers) {
-			if(  fabrik_t *src = get_fab( supplier )  ) {
-				if(  src->is_active_lieferziel(get_pos().get_2d())  ) {
-					buf.printf("\n      %s (%d,%d)", src->get_name(), supplier.x, supplier.y);
-				}
-				else {
-					buf.printf("\n   %s (%d,%d)", src->get_name(), supplier.x, supplier.y);
-				}
-			}
-		}
-	}
-
-	if (!target_cities.empty()) {
-		if(  has_previous  ) {
-			buf.append("\n\n");
-		}
-		has_previous = true;
-		buf.append( is_end_consumer() ? translator::translate("Customers live in:") : translator::translate("Arbeiter aus:") );
-
-		for(  uint32 c=0;  c<target_cities.get_count();  ++c  ) {
-			buf.append("\n");
-		}
-	}
-
 	const planquadrat_t *plan = welt->access(get_pos().get_2d());
 	if(plan  &&  plan->get_haltlist_count()>0) {
-		if(  has_previous  ) {
-			buf.append("\n\n");
-		}
 		buf.append(translator::translate("Connected stops"));
 
 		for(  uint i=0;  i<plan->get_haltlist_count();  i++  ) {

@@ -12,6 +12,7 @@ uint32 koord::locality_factor = 10000;
 const scr_coord scr_coord::invalid(-1, -1);
 
 const scr_size scr_size::invalid(-1, -1);
+const scr_size scr_size::inf(0x7fffffff, 0x7fffffff);
 
 const koord koord::invalid(-1, -1);
 const koord koord::north(    0, -1);
@@ -147,11 +148,6 @@ void koord::rdwr(loadsave_t *file)
 	file->rdwr_short(y);
 }
 
-
-koord::koord(loadsave_t *file)
-{
-	rdwr(file);
-}
 
 // for debug messages...
 const char *koord::get_str() const

@@ -67,7 +67,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4996;4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4250;4996;4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;shell32.lib;winmm.lib;zlibstat.lib;advapi32.lib;ws2_32.lib;imm32.lib;libbz2.lib;pthreadVC2.lib;miniupnpc.lib;freetype.lib</AdditionalDependencies>
@@ -104,7 +104,7 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>
       </DebugInformationFormat>
-      <DisableSpecificWarnings>4200;4800;4311;4996;4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;4250;4800;4311;4996;4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;shell32.lib;winmm.lib;zlibstat.lib;advapi32.lib;ws2_32.lib;imm32.lib;libbz2.lib;pthreadVC2.lib;miniupnpc.lib;freetype.lib</AdditionalDependencies>
@@ -125,6 +125,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="dataobj\rect.cc" />
     <ClCompile Include="descriptor\obj_base_desc.cc" />
     <ClCompile Include="descriptor\way_desc.cc" />
     <ClCompile Include="dataobj\height_map_loader.cc" />
@@ -139,9 +140,10 @@
     <ClCompile Include="gui\components\gui_container.cc" />
     <ClCompile Include="gui\components\gui_convoiinfo.cc" />
     <ClCompile Include="gui\components\gui_image.cc" />
-    <ClCompile Include="gui\components\gui_komponente.cc" />
+    <ClCompile Include="gui\components\gui_component.cc" />
     <ClCompile Include="gui\components\gui_map_preview.cc" />
     <ClCompile Include="gui\gui_theme.cc" />
+    <ClCompile Include="gui\headquarter_info.cc" />
     <ClCompile Include="gui\loadfont_frame.cc" />
     <ClCompile Include="gui\simwin.cc" />
     <ClCompile Include="gui\themeselector.cc" />
@@ -241,9 +243,14 @@
     <ClCompile Include="descriptor\reader\groundobj_reader.cc" />
     <ClCompile Include="boden\grund.cc" />
     <ClCompile Include="descriptor\ground_desc.cc" />
+    <ClCompile Include="gui\components\gui_aligned_container.cc" />
+    <ClCompile Include="gui\components\gui_building.cc" />
     <ClCompile Include="gui\components\gui_button.cc" />
+    <ClCompile Include="gui\components\gui_button_to_chart.cc" />
     <ClCompile Include="gui\components\gui_chart.cc" />
+    <ClCompile Include="gui\components\gui_colorbox.cc" />
     <ClCompile Include="gui\components\gui_combobox.cc" />
+    <ClCompile Include="gui\components\gui_divider.cc" />
     <ClCompile Include="gui\components\gui_obj_view_t.cc" />
     <ClCompile Include="gui\components\gui_fixedwidth_textarea.cc" />
     <ClCompile Include="gui\components\gui_flowtext.cc" />
@@ -259,7 +266,6 @@
     <ClCompile Include="gui\components\gui_textarea.cc" />
     <ClCompile Include="gui\components\gui_textinput.cc" />
     <ClCompile Include="gui\components\gui_world_view_t.cc" />
-    <ClCompile Include="gui\halt_detail.cc" />
     <ClCompile Include="gui\halt_info.cc" />
     <ClCompile Include="gui\halt_list_filter_frame.cc" />
     <ClCompile Include="gui\halt_list_frame.cc" />
@@ -441,6 +447,7 @@
   <ItemGroup>
     <ClInclude Include="dataobj\height_map_loader.h" />
     <ClInclude Include="dataobj\records.h" />
+    <ClInclude Include="dataobj\rect.h" />
     <ClInclude Include="display\font.h" />
     <ClInclude Include="display\scr_coord.h" />
     <ClInclude Include="display\simgraph.h" />
@@ -454,6 +461,7 @@
     <ClInclude Include="gui\components\gui_container.h" />
     <ClInclude Include="gui\components\gui_convoiinfo.h" />
     <ClInclude Include="gui\gui_theme.h" />
+    <ClInclude Include="gui\headquarter_info.h" />
     <ClInclude Include="gui\loadfont_frame.h" />
     <ClInclude Include="gui\simwin.h" />
     <ClInclude Include="gui\themeselector.h" />
@@ -542,9 +550,12 @@
     <ClInclude Include="descriptor\reader\groundobj_reader.h" />
     <ClInclude Include="boden\grund.h" />
     <ClInclude Include="descriptor\ground_desc.h" />
+    <ClInclude Include="gui\components\gui_aligned_container.h" />
     <ClInclude Include="gui\components\gui_action_creator.h" />
+    <ClInclude Include="gui\components\gui_building.h" />
     <ClInclude Include="gui\components\gui_button.h" />
     <ClInclude Include="gui\components\gui_chart.h" />
+    <ClInclude Include="gui\components\gui_colorbox.h" />
     <ClInclude Include="gui\components\gui_combobox.h" />
     <ClInclude Include="gui\components\gui_obj_view_t.h" />
     <ClInclude Include="gui\components\gui_divider.h" />
@@ -553,7 +564,7 @@
     <ClInclude Include="gui\gui_frame.h" />
     <ClInclude Include="gui\components\gui_image.h" />
     <ClInclude Include="gui\components\gui_image_list.h" />
-    <ClInclude Include="gui\components\gui_komponente.h" />
+    <ClInclude Include="gui\components\gui_component.h" />
     <ClInclude Include="gui\components\gui_label.h" />
     <ClInclude Include="gui\components\gui_numberinput.h" />
     <ClInclude Include="gui\components\gui_scrollbar.h" />
@@ -564,7 +575,6 @@
     <ClInclude Include="gui\components\gui_textarea.h" />
     <ClInclude Include="gui\components\gui_textinput.h" />
     <ClInclude Include="gui\components\gui_world_view_t.h" />
-    <ClInclude Include="gui\halt_detail.h" />
     <ClInclude Include="gui\halt_info.h" />
     <ClInclude Include="gui\halt_list_filter_frame.h" />
     <ClInclude Include="gui\halt_list_frame.h" />

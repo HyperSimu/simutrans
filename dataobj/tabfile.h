@@ -97,13 +97,6 @@ private:
 	 */
 	void format_key(char *key);
 
-	/**
-	 * Format the value string (trimleft and trimright)
-	 *
-	 * @author V. Meyer
-	 */
-	void format_value(char *value);
-
 public:
 	tabfile_t() : file(NULL) {}
 	~tabfile_t() { close(); }
@@ -135,7 +128,8 @@ class tabfileobj_t {
 private:
 	stringhashtable_tpl<obj_info_t> objinfo;
 
-	bool get_x_y( const char *key, sint16 &x, sint16 &y );
+	template<class I>
+	bool get_x_y( const char *key, I &x, I &y );
 
 public:
 	tabfileobj_t() { ; }
@@ -184,7 +178,6 @@ public:
 	 * @author V. Meyer
 	 */
 	const koord &get_koord(const char *key, koord def);
-	const scr_coord &get_scr_coord(const char *key, scr_coord def);
 	const scr_size &get_scr_size(const char *key, scr_size def);
 
 	/**

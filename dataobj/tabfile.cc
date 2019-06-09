@@ -89,7 +89,8 @@ void tabfileobj_t::clear()
 
 
 // private helps to get x y value pairs needed for koord etc.
-bool tabfileobj_t::get_x_y( const char *key, sint16 &x, sint16 &y )
+template<class I>
+bool tabfileobj_t::get_x_y( const char *key, I &x, I &y )
 {
 	const char *value = get_string(key,NULL);
 	const char *tmp;
@@ -111,14 +112,6 @@ bool tabfileobj_t::get_x_y( const char *key, sint16 &x, sint16 &y )
 const koord &tabfileobj_t::get_koord(const char *key, koord def)
 {
 	static koord ret;
-	ret = def;
-	get_x_y( key, ret.x, ret.y );
-	return ret;
-}
-
-const scr_coord &tabfileobj_t::get_scr_coord(const char *key, scr_coord def)
-{
-	static scr_coord ret;
 	ret = def;
 	get_x_y( key, ret.x, ret.y );
 	return ret;
@@ -760,23 +753,4 @@ void tabfile_t::format_key(char *key)
 		}
 	}
 	*t = '\0';
-}
-
-
-void tabfile_t::format_value(char *value)
-{
-	size_t len = strlen(value);
-
-	// trim right
-	while(len && value[len - 1] == ' ') {
-		value[--len] = '\0';
-	}
-	// trim left
-	if(*value == ' ') {
-		char *from;
-		for(from = value; *from == ' '; from++) {}
-		while(*value) {
-			*value++ = *from++;
-		}
-	}
 }

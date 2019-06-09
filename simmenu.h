@@ -72,6 +72,8 @@ enum {
 	TOOL_ERROR_MESSAGE,
 	TOOL_CHANGE_WATER_HEIGHT,
 	TOOL_SET_CLIMATE,
+	TOOL_ROTATE_BUILDING,
+	TOOL_MERGE_STOP,
 	GENERAL_TOOL_COUNT,
 	GENERAL_TOOL = 0x1000
 };
@@ -151,6 +153,7 @@ enum {
 	DIALOG_GAMEINFO,
 	DIALOG_THEMES,
 	DIALOG_SCENARIO,
+	DIALOG_SCENARIO_INFO,
 	DIALOGE_TOOL_COUNT,
 	DIALOGE_TOOL = 0x4000
 };
@@ -254,7 +257,7 @@ public:
 	void set_icon(image_id i) { icon = i; }
 
 	// returns default_param of this tool for player
-	// if sp==NULL returns default_param that was used to create the tool
+	// if player==NULL returns default_param that was used to create the tool
 	virtual const char* get_default_param(player_t* = NULL) const { return default_param; }
 	void set_default_param(const char* str) { default_param = str; }
 
@@ -443,7 +446,7 @@ public:
 	// close this toolbar
 	bool exit(player_t*) OVERRIDE;
 	virtual void update(player_t *);	// just refresh content
-	void append(tool_t *t) { tools.append(t); }
+	void append(tool_t *tool) { tools.append(tool); }
 };
 
 #define MAX_LAST_TOOLS (10)
@@ -454,7 +457,7 @@ private:
 public:
 	toolbar_last_used_t(uint16 const id, char const* const t, char const* const h) : toolbar_t(id,t,h) {}
 	static toolbar_last_used_t *last_used_tools;
-	void update(player_t *);	// just refresh content
+	void update(player_t *) OVERRIDE;	// just refresh content
 	void append(tool_t *, player_t *);
 	void clear();
 };

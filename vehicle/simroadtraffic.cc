@@ -241,7 +241,7 @@ stringhashtable_tpl<const citycar_desc_t *> private_car_t::table;
 bool private_car_t::register_desc(const citycar_desc_t *desc)
 {
 	if(  table.remove(desc->get_name())  ) {
-		dbg->warning( "citycar_desc_t::register_desc()", "Object %s was overlaid by addon!", desc->get_name() );
+		dbg->doubled( "citycar", desc->get_name() );
 	}
 	table.put(desc->get_name(), desc);
 	return true;
@@ -833,6 +833,10 @@ void private_car_t::calc_current_speed(grund_t* gr)
 void private_car_t::info(cbuffer_t & buf) const
 {
 	buf.printf(translator::translate("%s\nspeed %i\nmax_speed %i\ndx:%i dy:%i"), translator::translate(desc->get_name()), speed_to_kmh(current_speed), speed_to_kmh(desc->get_topspeed()), dx, dy);
+
+	if (char const* const maker = desc->get_copyright()) {
+		buf.printf(translator::translate("Constructed by %s"), maker);
+	}
 }
 
 

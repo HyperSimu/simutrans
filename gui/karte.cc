@@ -656,7 +656,18 @@ void reliefkarte_t::set_relief_farbe(koord k_, const PIXVAL color)
  */
 PIXVAL reliefkarte_t::calc_hoehe_farbe(const sint16 hoehe, const sint16 groundwater)
 {
-	return color_idx_to_rgb(map_type_color[clamp( (hoehe-groundwater)+MAX_MAP_TYPE_WATER-1, 0, MAX_MAP_TYPE_WATER+MAX_MAP_TYPE_LAND-1 )]);
+	sint16 relative_index;
+	if(  hoehe>groundwater  ) {
+		// adjust index for world_maximum_height
+		relative_index = (hoehe-groundwater)*MAX_MAP_TYPE_LAND/welt->get_settings().get_maximumheight();
+		if(  (hoehe-groundwater)*MAX_MAP_TYPE_LAND%welt->get_settings().get_maximumheight()!=0  ) {
+			// to avoid relative_index==0
+			relative_index += 1;
+		}
+	} else {
+		relative_index = hoehe-groundwater;
+	}
+	return color_idx_to_rgb(map_type_color[clamp( relative_index+MAX_MAP_TYPE_WATER-1, 0, MAX_MAP_TYPE_WATER+MAX_MAP_TYPE_LAND-1 )]);
 }
 
 
@@ -937,15 +948,27 @@ void reliefkarte_t::calc_map_pixel(const koord k)
 }
 
 
-void reliefkarte_t::calc_map_size()
+scr_size reliefkarte_t::get_min_size() const
+{
+	return get_max_size(); //scr_size(0,0);
+}
+
+
+scr_size reliefkarte_t::get_max_size() const
 {
 	scr_coord size = karte_to_screen( koord( welt->get_size().x, 0 ) );
-	scr_coord down= karte_to_screen( koord( welt->get_size().x, welt->get_size().y ) );
+	scr_coord down = karte_to_screen( koord( welt->get_size().x, welt->get_size().y ) );
 	size.y = down.y;
 	if(  isometric  ) {
 		size.x += zoom_in*2;
 	}
-	set_size( scr_size(size.x, size.y) ); // of the gui_komponete to adjust scroll bars
+	return scr_size(size.x, size.y);
+}
+
+
+void reliefkarte_t::calc_map_size()
+{
+	set_size( get_max_size() ); // of the gui_component to adjust scroll bars
 	needs_redraw = true;
 }
 
@@ -1561,9 +1584,7 @@ void reliefkarte_t::draw(scr_coord pos)
 		FOR( weighted_vector_tpl<stadt_t*>, const stadt, staedte ) {
 			const char * name = stadt->get_name();
 
-			int w = proportional_string_width(name);
 			scr_coord p = karte_to_screen( stadt->get_pos() );
-			p.x = clamp( p.x, 0, get_size().w-w );
 			p += pos;
 			display_proportional_clip_rgb( p.x, p.y, name, ALIGN_LEFT, col, true );
 		}
@@ -1723,6 +1744,7 @@ void reliefkarte_t::rdwr(loadsave_t *file)
 {
 	file->rdwr_short(zoom_out);
 	file->rdwr_short(zoom_in);
+	file->rdwr_bool(isometric);
 }
 
 

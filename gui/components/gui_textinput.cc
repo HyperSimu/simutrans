@@ -40,6 +40,18 @@ gui_textinput_t::gui_textinput_t() :
 { }
 
 
+scr_size gui_textinput_t::get_min_size() const
+{
+	return scr_size(16*LINESPACE, LINESPACE+4);
+}
+
+
+scr_size gui_textinput_t::get_max_size() const
+{
+	return scr_size(scr_size::inf.w, LINESPACE+4);
+}
+
+
 /**
  * determine new cursor position from event coordinates
  * @author Knightly
@@ -125,10 +137,12 @@ bool gui_textinput_t::infowin_event(const event_t *ev)
 						text_dirty = false;
 						call_listeners((long)1);
 					}
+					/* FALLTHROUGH */
 				case SIM_KEY_TAB:
 					// Knightly : focus is going to be lost -> reset cursor positions to select the whole text by default
 					head_cursor_pos = len;
 					tail_cursor_pos = 0;
+					/* FALLTHROUGH */
 				case SIM_KEY_ESCAPE:
 					return false;
 
@@ -386,7 +400,7 @@ bool gui_textinput_t::infowin_event(const event_t *ev)
 				}
 
 				// insert into text?
-				if (head_cursor_pos < len) {
+				if(  len>0  &&  head_cursor_pos < len  ) {
 					for(  sint64 pos=len+num_letter;  pos>=(sint64)head_cursor_pos;  pos--  ) {
 						text[pos] = text[pos-num_letter];
 					}
@@ -557,20 +571,12 @@ void gui_textinput_t::display_with_cursor(scr_coord offset, bool cursor_active, 
 		}
 
 		// set clipping to be within textinput button
-		const clip_dimension old_clip = display_get_clip_wh();
-
 		const int text_clip_x = pos.x + offset.x + 1;
 		const int text_clip_w = size.w - 2;
 		const int text_clip_y = pos.y + offset.y + 1;
 		const int text_clip_h = size.h - 2;
-		// something to draw?
-		if (  text_clip_x>=old_clip.xx  ||  text_clip_x+text_clip_w<=old_clip.x  ||  text_clip_w<=0  ||
-			  text_clip_y>=old_clip.yy  ||  text_clip_y+text_clip_h<=old_clip.y  ||  text_clip_h<=0     ) {
-				return;
-		}
-		const int clip_x = old_clip.x>text_clip_x ? old_clip.x : text_clip_x;
-		const int clip_y = old_clip.y>text_clip_y ? old_clip.y : text_clip_y;
-		display_set_clip_wh( clip_x, clip_y, min(old_clip.xx, text_clip_x+text_clip_w)-clip_x, min(old_clip.yy, text_clip_y+text_clip_h)-clip_y );
+
+		PUSH_CLIP_FIT(text_clip_x, text_clip_y, text_clip_w, text_clip_h);
 
 		const int x_base_offset = pos.x+offset.x+2-scroll_offset;
 		const int y_offset = pos.y+offset.y+D_GET_CENTER_ALIGN_OFFSET(LINESPACE,size.h);
@@ -619,7 +625,7 @@ void gui_textinput_t::display_with_cursor(scr_coord offset, bool cursor_active, 
 		}
 
 		// reset clipping
-		display_set_clip_wh(old_clip.x, old_clip.y, old_clip.w, old_clip.h);
+		POP_CLIP();
 	}
 }
 

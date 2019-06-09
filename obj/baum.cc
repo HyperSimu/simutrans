@@ -118,6 +118,7 @@ uint8 baum_t::plant_tree_on_coordinate(koord pos, const uint8 maximum_count, con
 						if(((groundobj_t *)obj)->get_desc()->can_build_trees_here()) {
 							break;
 						}
+						/* FALLTHROUGH */
 						// leave these (and all other empty)
 					default:
 						return 0;
@@ -160,6 +161,7 @@ bool baum_t::plant_tree_on_coordinate(koord pos, const tree_desc_t *desc, const 
 						if(((groundobj_t *)(gr->obj_bei(0)))->get_desc()->can_build_trees_here()) {
 							break;
 						}
+						/* FALLTHROUGH */
 						// leave these (and all other empty)
 					default:
 						return false;
@@ -267,7 +269,7 @@ bool baum_t::successfully_loaded()
 	tree_list_per_climate = new weighted_vector_tpl<uint32>[MAX_CLIMATES];
 
 	// clear cache
-	memset( tree_id_to_image, -1, lengthof(tree_id_to_image) );
+	memset( tree_id_to_image, -1, sizeof(tree_id_to_image) );
 	// now register all trees for all fitting climates
 	for(  uint32 typ=0;  typ<tree_list.get_count()-1;  typ++  ) {
 		// add this tree to climates
@@ -307,8 +309,8 @@ bool baum_t::successfully_loaded()
 bool baum_t::register_desc(tree_desc_t *desc)
 {
 	// avoid duplicates with same name
-	if(desc_table.remove(desc->get_name())) {
-		dbg->warning( "baum_t::register_desc()", "Object %s was overlaid by addon!", desc->get_name() );
+	if(  desc_table.remove(desc->get_name())  ) {
+		dbg->doubled( "baum_t", desc->get_name() );
 	}
 	desc_table.put(desc->get_name(), desc );
 	return true;
@@ -608,6 +610,11 @@ void baum_t::info(cbuffer_t & buf) const
 	buf.append( "\n" );
 	uint32 age = get_age();
 	buf.printf( translator::translate("%i years %i months old."), age/12, (age%12) );
+
+	if (char const* const maker = get_desc()->get_copyright()) {
+		buf.append("\n\n");
+		buf.printf(translator::translate("Constructed by %s"), maker);
+	}
 }
 
 

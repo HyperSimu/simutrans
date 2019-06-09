@@ -190,7 +190,7 @@ grund_t* viewport_t::get_ground_on_screen_coordinate(scr_coord screen_pos, sint3
 		if (gr != NULL) {
 			found = /*select_karten_boden ? gr->ist_karten_boden() :*/ gr->is_visible();
 			if( ( gr->get_typ() == grund_t::tunnelboden || gr->get_typ() == grund_t::monorailboden ) && gr->get_weg_nr(0) == NULL && !gr->get_leitung()  &&  gr->find<zeiger_t>()) {
-				// This is only a dummy ground placed by tool_build_tunnel or tool_build_way_t as a preview.
+				// This is only a dummy ground placed by tool_build_tunnel_t or tool_build_way_t as a preview.
 				found = false;
 			}
 			if (found) {
@@ -223,7 +223,7 @@ grund_t* viewport_t::get_ground_on_screen_coordinate(scr_coord screen_pos, sint3
 		if(gr != NULL) {
 			found = /*select_karten_boden ? gr->ist_karten_boden() :*/ gr->is_visible();
 			if( ( gr->get_typ() == grund_t::tunnelboden || gr->get_typ() == grund_t::monorailboden ) && gr->get_weg_nr(0) == NULL && !gr->get_leitung()  &&  gr->find<zeiger_t>()) {
-				// This is only a dummy ground placed by tool_build_tunnel or tool_build_way_t as a preview.
+				// This is only a dummy ground placed by tool_build_tunnel_t or tool_build_way_t as a preview.
 				found = false;
 			}
 			if (found) {
@@ -281,22 +281,6 @@ koord3d viewport_t::get_new_cursor_position( const scr_coord &screen_pos, bool g
 }
 
 
-bool viewport_t::is_background_visible() const
-{
-
-	sint32 i,j;
-
-	if ( get_ground_on_screen_coordinate(scr_coord(0,0),i,j)  &&  \
-		get_ground_on_screen_coordinate(scr_coord(cached_disp_width-1,0),i,j)  &&  \
-		get_ground_on_screen_coordinate(scr_coord(0,cached_disp_height-1),i,j)  &&  \
-		get_ground_on_screen_coordinate(scr_coord(cached_disp_width-1,cached_disp_height-1),i,j)  ) {
-			return false;
-	}
-
-	return true;
-}
-
-
 void viewport_t::metrics_updated()
 {
 	cached_disp_width = display_get_width();
@@ -318,6 +302,7 @@ void viewport_t::rotate90( sint16 y_size )
 
 
 viewport_t::viewport_t( karte_t *world, const koord ij_off , sint16 x_off , sint16 y_off )
+	: prepared_rect() 
 {
 	this->world = world;
 	assert(world);

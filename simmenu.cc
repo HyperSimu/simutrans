@@ -119,6 +119,8 @@ tool_t *create_general_tool(int toolnr)
 		case TOOL_ERROR_MESSAGE: tool = new tool_error_message_t(); break;
 		case TOOL_CHANGE_WATER_HEIGHT: tool = new tool_change_water_height_t(); break;
 		case TOOL_SET_CLIMATE:      tool = new tool_set_climate_t(); break;
+		case TOOL_ROTATE_BUILDING:		tool = new tool_rotate_building_t(); break;
+		case TOOL_MERGE_STOP:		tool = new tool_merge_stop_t(); break;
 		default:                   dbg->error("create_general_tool()","cannot satisfy request for general_tool[%i]!",toolnr);
 		                           return NULL;
 	}
@@ -211,6 +213,7 @@ tool_t *create_dialog_tool(int toolnr)
 		case DIALOG_GAMEINFO:       tool = new dialog_gameinfo_t(); break;
 		case DIALOG_THEMES:         tool = new dialog_themes_t(); break;
 		case DIALOG_SCENARIO:       tool = new dialog_scenario_t(); break;
+		case DIALOG_SCENARIO_INFO:  tool = new dialog_scenario_info_t(); break;
 		default:                 dbg->error("create_dialog_tool()","cannot satisfy request for dialog_tool[%i]!",toolnr);
 		                         return NULL;
 	}
@@ -1082,6 +1085,9 @@ const char *two_click_tool_t::work(player_t *player, koord3d pos )
 	uint8 value = is_valid_pos( player, pos, error, !is_first_click() ? start : koord3d::invalid );
 	DBG_MESSAGE("two_click_tool_t::work", "Position %s valid=%d", pos.get_str(), value );
 	if(  value == 0  ) {
+		if (error == NULL) {
+			error = ""; // propagate errors
+		}
 		flags &= ~(WFL_SHIFT | WFL_CTRL);
 		init( player );
 		return error;
@@ -1191,7 +1197,7 @@ void two_click_tool_t::cleanup( bool delete_start_marker )
 		koord3d pos = z->get_pos();
 		grund_t *gr = welt->lookup( pos );
 		delete z;
-		// Remove dummy ground (placed by tool_tunnelbau_t and tool_wegebau_t):
+		// Remove dummy ground (placed by tool_build_tunnel_t and tool_build_way_t):
 		if(gr  &&   (gr->get_typ() == grund_t::tunnelboden  ||  gr->get_typ() == grund_t::monorailboden)  &&  gr->get_weg_nr(0) == NULL && !gr->get_leitung() ) {
 			welt->access(pos.get_2d())->boden_entfernen(gr);
 			delete gr;

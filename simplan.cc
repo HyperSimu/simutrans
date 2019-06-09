@@ -176,7 +176,7 @@ bool planquadrat_t::boden_entfernen(grund_t *bd)
 }
 
 
-void planquadrat_t::kartenboden_setzen(grund_t *bd)
+void planquadrat_t::kartenboden_setzen(grund_t *bd, bool startup)
 {
 	assert(bd);
 	grund_t *tmp = get_kartenboden();
@@ -188,7 +188,10 @@ void planquadrat_t::kartenboden_setzen(grund_t *bd)
 		ground_size = 1;
 		bd->set_kartenboden(true);
 	}
-	bd->calc_image();
+	if (!startup) {
+		// water tiles need neighbor tiles, which might not be initialized at startup
+		bd->calc_image();
+	}
 	reliefkarte_t::get_karte()->calc_map_pixel(bd->get_pos().get_2d());
 }
 
@@ -620,7 +623,6 @@ void planquadrat_t::display_overlay(const sint16 xpos, const sint16 ypos) const
 	}
 }
 
-
 /**
  * Finds halt belonging to a player
  * @param player owner of the halts we are interested in.
@@ -793,4 +795,16 @@ bool planquadrat_t::is_connected(halthandle_t halt) const
 		}
 	}
 	return false;
+}
+
+void planquadrat_t::update_underground() const
+{
+	get_kartenboden()->check_update_underground();
+	// update tunnel tiles
+	for(unsigned int i=1; i<get_boden_count(); i++) {
+		grund_t *const gr = get_boden_bei(i);
+		if (gr->ist_tunnel()) {
+			gr->check_update_underground();
+		}
+	}
 }

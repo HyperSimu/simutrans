@@ -61,6 +61,9 @@ settings_t::settings_t() :
 	max_ship_convoi_length = 4;
 	max_air_convoi_length = 1;
 
+	world_maximum_height = 32;
+	world_minimum_height = -12;
+
 	// default climate zones
 	set_default_climates( );
 	winter_snowline = 7;	// not mediterranean
@@ -252,6 +255,8 @@ settings_t::settings_t() :
 	cst_depot_road=-130000;
 	cst_depot_ship=-250000;
 	cst_depot_air=-500000;
+	allow_merge_distant_halt = 2;
+	cst_multiply_merge_halt=-50000;
 	// alter landscape
 	cst_buy_land=-10000;
 	cst_alter_land=-100000;
@@ -641,6 +646,10 @@ void settings_t::rdwr(loadsave_t *file)
 				file->rdwr_longlong(cst_make_public_months);
 			}
 
+			if(  file->get_version() > 120008  ) {
+				file->rdwr_longlong(cst_multiply_merge_halt);
+			}
+
 			// wayfinder
 			file->rdwr_long(way_count_straight );
 			file->rdwr_long(way_count_curve );
@@ -815,6 +824,13 @@ void settings_t::rdwr(loadsave_t *file)
 			file->rdwr_byte(max_ship_convoi_length);
 			file->rdwr_byte(max_air_convoi_length);
 		}
+		if(  file->get_version() > 120006  ) {
+			file->rdwr_byte(world_maximum_height);
+			file->rdwr_byte(world_minimum_height);
+		}
+		if(  file->get_version() > 120008  ) {
+			file->rdwr_long(allow_merge_distant_halt);
+		}
 		// otherwise the default values of the last one will be used
 	}
 }
@@ -845,6 +861,13 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 		delete [] c;
 	}
 #endif
+
+	//check for fontname, must be a valid name!
+	const char *fname = contents.get_string( "fontname", env_t::fontname.c_str() );
+	if(  FILE *f=fopen(fname,"r")  ) {
+		fclose(f);
+		env_t::fontname = fname;
+	}
 
 	env_t::water_animation = contents.get_int("water_animation_ms", env_t::water_animation );
 	env_t::ground_object_probability = contents.get_int("random_grounds_probability", env_t::ground_object_probability );
@@ -907,7 +930,7 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	env_t::reload_and_save_on_quit = contents.get_int("reload_and_save_on_quit", env_t::reload_and_save_on_quit );
 
 	env_t::server_announce = contents.get_int("announce_server", env_t::server_announce );
-	env_t::server_announce = contents.get_int("server_port", env_t::server_port );
+	env_t::server_port = contents.get_int("server_port", env_t::server_port );
 	env_t::server_announce = contents.get_int("server_announce", env_t::server_announce );
 	env_t::server_announce_interval = contents.get_int("server_announce_intervall", env_t::server_announce_interval );
 	env_t::server_announce_interval = contents.get_int("server_announce_interval", env_t::server_announce_interval );
@@ -919,6 +942,9 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	}
 	if(  *contents.get("server_dns")  ) {
 		env_t::server_dns = ltrim(contents.get("server_dns"));
+	}
+	if(  *contents.get("server_altdns")  ) {
+		env_t::server_alt_dns = ltrim(contents.get("server_altdns"));
 	}
 	if(  *contents.get("server_name")  ) {
 		env_t::server_name = ltrim(contents.get("server_name"));
@@ -1331,6 +1357,9 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	cst_depot_road = contents.get_int64("cost_depot_road", cst_depot_road/(-100) ) * -100;
 	cst_depot_ship = contents.get_int64("cost_depot_ship", cst_depot_ship/(-100) ) * -100;
 
+	allow_merge_distant_halt = contents.get_int("allow_merge_distant_halt", allow_merge_distant_halt);
+	cst_multiply_merge_halt = contents.get_int64("cost_multiply_merge_halt", cst_multiply_merge_halt/(-100) ) * -100;
+
 	// alter landscape
 	cst_buy_land = contents.get_int64("cost_buy_land", cst_buy_land/(-100) ) * -100;
 	cst_alter_land = contents.get_int64("cost_alter_land", cst_alter_land/(-100) ) * -100;
@@ -1415,6 +1444,12 @@ void settings_t::parse_simuconf(tabfile_t& simuconf, sint16& disp_width, sint16&
 	max_road_convoi_length = contents.get_int("max_road_convoi_length",max_road_convoi_length);
 	max_ship_convoi_length = contents.get_int("max_ship_convoi_length",max_ship_convoi_length);
 	max_air_convoi_length = contents.get_int("max_air_convoi_length",max_air_convoi_length);
+
+	world_maximum_height = contents.get_int("world_maximum_height",world_maximum_height);
+	world_minimum_height = contents.get_int("world_minimum_height",world_minimum_height);
+	if(  world_minimum_height>=world_maximum_height  ) {
+		world_minimum_height = world_maximum_height-1;
+	}
 
 	// Default pak file path
 	objfilename = ltrim(contents.get_string("pak_file_path", "" ) );

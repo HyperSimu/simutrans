@@ -146,7 +146,7 @@ private:
 	* Convoi owner
 	* @author Hj. Malthaner
 	*/
-	player_t *owner_p;
+	player_t *owner;
 
 	/**
 	* Current map
@@ -496,7 +496,7 @@ public:
 	*/
 	convoi_t(loadsave_t *file);
 
-	convoi_t(player_t* player_);
+	convoi_t(player_t* player);
 
 	virtual ~convoi_t();
 
@@ -603,7 +603,7 @@ public:
 	 * all other stuff => convoi_t::step()
 	 * @author Hj. Malthaner
 	 */
-	sync_result sync_step(uint32 delta_t);
+	sync_result sync_step(uint32 delta_t) OVERRIDE;
 
 	/**
 	 * All things like route search or loading, that may take a little
@@ -691,7 +691,7 @@ public:
 	* @return Owner of this convoi
 	* @author Hj. Malthaner
 	*/
-	player_t * get_owner() const { return owner_p; }
+	player_t * get_owner() const { return owner; }
 
 	/**
 	* Opens an information window
@@ -883,7 +883,7 @@ public:
 	uint32 get_average_kmh() const;
 
 	// Overtaking for convois
-	virtual bool can_overtake(overtaker_t *other_overtaker, sint32 other_speed, sint16 steps_other);
+	bool can_overtake(overtaker_t *other_overtaker, sint32 other_speed, sint16 steps_other) OVERRIDE;
 };
 
 #endif

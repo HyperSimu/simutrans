@@ -109,6 +109,12 @@ private:
 	 */
 	sint32 show_pax;
 
+	/**
+	 * the maximum and minimum allowed world height.
+	 */
+	sint8 world_maximum_height;
+	sint8 world_minimum_height;
+
 	 /**
 	 * waterlevel, climate borders, lowest snow in winter
 	 */
@@ -296,6 +302,10 @@ public:
 	sint64 cst_depot_ship;
 	sint64 cst_depot_air;
 
+	// cost to merge station
+	uint32 allow_merge_distant_halt;
+	sint64 cst_multiply_merge_halt;
+
 	// alter landscape
 	sint64 cst_buy_land;
 	sint64 cst_alter_land;
@@ -384,6 +394,9 @@ public:
 
 	void set_show_pax(bool yesno) {show_pax=yesno;}
 	bool get_show_pax() const {return show_pax != 0;}
+
+	sint8 get_maximumheight() const { return world_maximum_height; }
+	sint8 get_minimumheight() const { return world_minimum_height; }
 
 	sint16 get_groundwater() const {return groundwater;}
 
@@ -580,6 +593,8 @@ public:
 
 	bool get_allow_underground_transformers() const { return allow_underground_transformers; }
 	bool get_disable_make_way_public() const { return disable_make_way_public; }
+
+	uint32 get_allow_merge_distant_halt() const { return allow_merge_distant_halt; }
 
 	uint16 get_remove_dummy_player_months() const { return remove_dummy_player_months; }
 	uint16 get_unprotect_abandoned_player_months() const { return unprotect_abandoned_player_months; }
